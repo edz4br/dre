@@ -1,29 +1,30 @@
 # Simulado DRE em grupo
 
-Site de treino para o trabalho de Fundamentos da Contabilidade. O exemplo usa os valores da apresentação da aula 11 (14/10/2026). Há quatro abas: operacional (compartilhada pelos dois gerentes), investimento, financiamento e controller. Cada área tem ajuda contextual e correção. A DRE acompanha os valores preenchidos e o botão de reinício apaga a sala mediante senha.
+Site de treino para o trabalho de Fundamentos da Contabilidade, com os valores da apresentação da aula 11 (14/10/2026). Há quatro abas: operacional (compartilhada pelos dois gerentes), investimento, financiamento e controller. Cada área tem ajuda contextual e correção. A DRE acompanha as respostas em tempo real e o reinício da sala exige a senha do controller.
 
-## Como está organizado
+## Estrutura
 
-- `site/`: página estática publicada no GitHub Pages.
-- `worker/`: API do Cloudflare Workers e banco D1. A senha existe apenas como segredo do servidor.
-- `.github/workflows/pages.yml`: publicação automática da pasta `site/` no GitHub Pages.
-- `tests/`: verificação dos cálculos e da correção.
+- `site/`: página publicada no GitHub Pages.
+- `worker/`: API do Cloudflare Workers, configuração do D1 e esquema da tabela. A senha existe apenas como segredo do servidor.
+- `.github/workflows/pages.yml`: publica automaticamente a pasta `site/` no GitHub Pages.
+- `tests/`: testes dos cálculos, da correção e da API.
 
-O GitHub Pages hospeda apenas arquivos estáticos. O Worker fornece gravação e correção compartilhadas; o D1 guarda os dados de cada sala. A interface consulta o servidor a cada 2,5 segundos e também atualiza o próprio navegador imediatamente. O código aleatório na URL identifica a sala. Quem recebe esse link pode alterar as respostas; distribua-o somente ao grupo.
+O GitHub Pages hospeda os arquivos estáticos. O Worker recebe e corrige as respostas; o D1 guarda os dados de cada sala. A interface consulta o servidor a cada 2,5 segundos. O código aleatório da URL identifica a sala; qualquer pessoa com o link pode alterar as respostas.
 
-## Prévia sem servidor
+## Prévia local
 
-Na raiz do projeto, execute `node --test` e `node dev-server.js`; abra `http://127.0.0.1:4173`. Com `site/config.js` vazio, o site funciona como demonstração neste navegador, inclusive em outras abas do mesmo navegador. A senha de reinício **somente da demonstração** é `treino`. Esse modo não sincroniza aparelhos diferentes.
+Na raiz do projeto, execute `node --test` e `node dev-server.js`; abra `http://127.0.0.1:4173`. O modo de demonstração local usa o armazenamento do navegador e não sincroniza aparelhos diferentes.
 
-## Publicação completa
+## Publicação
 
-1. Crie um repositório público no GitHub, por exemplo `simulado-dre`, e envie todos os arquivos deste projeto mantendo a estrutura de pastas. Em **Settings → Pages → Build and deployment**, escolha **GitHub Actions**. O fluxo de publicação usa a ramificação `main` e entrega somente `site/`.
-2. Em uma conta Cloudflare sua, crie o D1 com `npx wrangler d1 create simulado-dre`. Copie `worker/wrangler.jsonc.example` para `worker/wrangler.jsonc`. Substitua `database_id` pelo identificador retornado e `ALLOWED_ORIGIN` pela origem do GitHub Pages, como `https://edz4br.github.io` (sem o caminho do repositório). Não coloque senhas nesse arquivo.
-3. Crie a tabela com `npx wrangler d1 execute simulado-dre --remote --file=worker/schema.sql --config worker/wrangler.jsonc`. Defina a senha do reinício com `npx wrangler secret put RESET_PASSWORD --config worker/wrangler.jsonc`. Digite uma senha forte no prompt. Publique a API com `npx wrangler deploy --config worker/wrangler.jsonc`.
-4. Coloque a URL pública retornada pelo Worker em `site/config.js`, na variável `DRE_API_URL` (sem `/` no final). Envie a alteração ao GitHub. Confirme que a faixa superior diz **Sala sincronizada**. Copie o link de uma sala e compartilhe com o grupo.
+1. O GitHub Actions publica `site/` a cada envio para `main`. Em **Settings → Pages → Build and deployment**, selecione **GitHub Actions**.
+2. A API usa o Worker `simulado-dre-api` e o banco D1 `simulado-dre`. `worker/wrangler.jsonc` aponta para esse banco e restringe chamadas à origem deste GitHub Pages.
+3. Em **Workers & Pages → simulado-dre-api → Settings → Builds**, conecte `edz4br/dre` à ramificação `main`. Deixe a raiz do projeto como `.` e use `npx wrangler deploy --config worker/wrangler.jsonc` como comando de implantação.
+4. Em **Settings → Variables and secrets**, adicione `RESET_PASSWORD` como secret do Worker.
+5. Depois da implantação, abra uma sala e confirme que a faixa superior indica **Sala sincronizada**. Preencha um campo e abra a mesma sala em outro aparelho para testar a atualização.
 
-Use uma senha de reinício exclusiva para este site. Não publique a senha ou chaves da Cloudflare no repositório. A API restringe as chamadas de navegadores à origem configurada, limita tentativas de reinício e mantém as respostas no D1.
+O arquivo `site/config.js` já aponta para o Worker público. Não coloque a senha nem chaves de acesso no repositório.
 
-## Papel do controller no exercício
+## Papel do controller
 
-Segundo os slides, cada gerente apura sua área e o controller faz o cálculo final, assina e entrega o relatório. No simulado, ele recebe os valores dos gerentes pela DRE ao vivo e preenche cinco subtotais. Se uma apuração de um gerente parecer errada, peça à pessoa responsável que confira sua área. O site não envia o relatório ao professor.
+Segundo os slides, cada gerente apura sua área e o controller faz o cálculo final, assina e entrega o relatório. No simulado, o controller recebe os valores pela DRE ao vivo e preenche cinco subtotais. Se uma apuração parecer incorreta, peça à pessoa responsável pela área que a confira. O site não envia o relatório ao professor.

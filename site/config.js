@@ -1,3 +1,2 @@
-// Após publicar o Worker, informe sua URL pública aqui (sem barra no final).
-// Vazio = demonstração local no navegador; não sincroniza outros aparelhos.
-window.DRE_API_URL = "";
+// API compartilhada pela equipe, hospedada no Cloudflare Workers.
+window.DRE_API_URL = "https://simulado-dre-api.edu00-br.workers.dev";
