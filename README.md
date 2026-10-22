@@ -30,4 +30,4 @@ node dev-server.js
 
 Os testes verificam a ordem da DRE, os totais calculados a partir das contas, a geração de casos positivos, a correção por área, a sincronização e a senha de reset.
 
-No Cloudflare Workers Builds, as prévias usam a raiz `/worker` e o comando `npx wrangler preview`, que encontra `worker/wrangler.jsonc`. O bloco `previews` desse arquivo e o vínculo **Previews Base** apontam para o D1 separado `simulado-dre-preview`. A produção continua na raiz `/`, usa `npx wrangler deploy --config worker/wrangler.jsonc` e mantém o banco `simulado-dre`. Quando `worker/schema.sql` mudar, aplique o mesmo esquema também ao banco de prévia.
+O arquivo `wrangler.jsonc` na raiz é usado pelas prévias do Cloudflare Workers Builds com o comando padrão `npx wrangler preview`; ele aponta para o D1 de teste `simulado-dre-preview`, inclusive no bloco `previews`. Em **Previews Base**, mantenha a raiz como `/` e o vínculo D1 como `simulado-dre-preview`. A produção usa `npx wrangler deploy --config worker/wrangler.jsonc` e o banco `simulado-dre`. Quando `worker/schema.sql` mudar, aplique o mesmo esquema também ao banco de prévia.
