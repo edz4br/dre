@@ -1,53 +1,27 @@
-import { CASE, EMPTY, FIELDS, grade } from '../site/core.js';
+import { CASE, EMPTY, FIELDS, createPracticeCase, grade, normalizeCaseData } from '../site/core.js';
 
 const json = (body, status = 200, origin = '') => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...(origin ? { 'Access-Control-Allow-Origin': origin, Vary: 'Origin' } : {}) } });
 const fieldsOk = (role, field) => FIELDS[role]?.some(item => item.key === field);
 const roomOk = value => /^[A-Z0-9]{8,12}$/.test(value);
 const now = () => new Date().toISOString();
+
 function parseRoom(row) {
   const stored = JSON.parse(row.state);
-  const caseData = stored.__caseData || CASE;
+  const savedCase = stored.__caseData || CASE;
+  const caseData = normalizeCaseData(savedCase);
   delete stored.__caseData;
   return { fields: stored, caseData, checked: JSON.parse(row.checked), revision: row.revision, updatedAt: row.updated_at };
 }
-const emptyRoomState = (caseData = CASE) => ({ ...EMPTY(), __caseData: caseData });
-function money(value) { return Math.round(value * 100) / 100; }
-function makeValues(seed) {
-  let state = seed || 1;
-  const random = () => { state = (Math.imul(state, 1664525) + 1013904223) >>> 0; return state / 4294967296; };
-  const ratio = (base, min, max) => money(base * (min + random() * (max - min)));
-  const positiveRatio = (base, chance, min, max) => ratio(base, min, max);
-  const revenue = money(150_000 + random() * 4_850_000);
-  const cost = ratio(revenue, 0.42, 0.70);
-  const otherRevenue = positiveRatio(revenue, 0.45, 0.004, 0.025);
-  const sales = ratio(revenue, 0.025, 0.055);
-  const research = positiveRatio(revenue, 0.4, 0.004, 0.018);
-  const admin = ratio(revenue, 0.035, 0.085);
-  const goodwill = positiveRatio(revenue, 0.12, 0.002, 0.01);
-  const otherExpense = ratio(revenue, 0.004, 0.018);
-  const operating = revenue - cost + otherRevenue - sales - research - admin - goodwill - otherExpense;
-  const equity = positiveRatio(operating, 0.3, 0.01, 0.07);
-  const otherInvestment = positiveRatio(operating, 0.35, 0.005, 0.04);
-  const beforeFinance = operating + equity + otherInvestment;
-  const interest = ratio(beforeFinance, 0.025, 0.11);
-  const benefit = positiveRatio(beforeFinance, 0.2, 0.003, 0.02);
-  const beforeTax = beforeFinance - interest - benefit;
-  const tax = ratio(beforeTax, 0.12, 0.32);
-  const discontinued = positiveRatio(beforeTax, 0.12, 0.005, 0.025);
-  return { revenue, cost, otherRevenue, sales, research, admin, goodwill, otherExpense, equity, otherInvestment, interest, benefit, tax, discontinued };
-}
+
+const emptyRoomState = (caseData = CASE) => ({ ...EMPTY(), __caseData: normalizeCaseData(caseData) });
+
 function makeCase(payload, seed, source = 'IA') {
-  const values = makeValues(seed);
   const text = ['company', 'sector', 'context'].map(key => String(payload?.[key] || '').trim().slice(0, key === 'context' ? 220 : 70));
   if (source === 'IA' && text.some(value => !value)) throw new Error('Incomplete AI case');
-  const metadata = { company: text[0], sector: text[1], context: text[2], source, generatedAt: now() };
-  return {
-    operational: CASE.operational.map(field => ({ ...field, value: values[field.key] })),
-    investment: CASE.investment.map(field => ({ ...field, value: values[field.key] })),
-    financing: CASE.financing.map(field => ({ ...field, value: values[field.key] })),
-    metadata
-  };
+  const [company, sector, context] = text;
+  return createPracticeCase(seed, { company, sector, context, source, generatedAt: now() });
 }
+
 async function generateCase(env) {
   const seed = crypto.getRandomValues(new Uint32Array(1))[0] || 1;
   try {
@@ -55,30 +29,32 @@ async function generateCase(env) {
     const response = await env.AI.run('@cf/meta/llama-3.1-8b-instruct-fp8', {
       messages: [
         { role: 'system', content: 'Responda exclusivamente com um objeto JSON valido, sem markdown. Use exatamente as chaves company, sector e context, todas com texto curto em portugues brasileiro. Nao inclua valores financeiros.' },
-        { role: 'user', content: 'Crie informacoes originais para um caso didatico de DRE: nome de uma empresa totalmente ficticia, setor e uma frase de contexto. Evite nomes e historias genericas.' }
+        { role: 'user', content: 'Crie informacoes originais para um caso didatico de DRE. A empresa ficticia deve vender mercadorias e prestar servicos complementares, com producao propria. Inclua um motivo operacional para haver despesas de pesquisa, investimentos, financiamento e uma unidade descontinuada. Escreva uma frase curta de contexto, sem valores financeiros.' }
       ],
       max_tokens: 220,
       temperature: 1.1,
       seed
     });
     const output = typeof response?.response === 'string' ? response.response : JSON.stringify(response?.response ?? '');
-    const json = output.match(/\{[\s\S]*\}/)?.[0];
-    if (!json) throw new Error('AI did not return JSON');
-    const payload = JSON.parse(json);
-    return makeCase(payload, seed);
+    const jsonText = output.match(/\{[\s\S]*\}/)?.[0];
+    if (!jsonText) throw new Error('AI did not return JSON');
+    return makeCase(JSON.parse(jsonText), seed);
   } catch {
     const fallback = [
-      { company: 'Comercial Horizonte', sector: 'Varejo de alimentos', context: 'A empresa ampliou as vendas apos abrir uma nova unidade.' },
-      { company: 'Oficina Rota Norte', sector: 'Servicos automotivos', context: 'A oficina contratou novos servicos e reorganizou seus custos.' },
-      { company: 'Verde Campo', sector: 'Agronegocio', context: 'A companhia vendeu uma safra e investiu em melhorias operacionais.' },
-      { company: 'Nuvem Clara', sector: 'Tecnologia', context: 'A empresa lancou um servico por assinatura para pequenas empresas.' }
+      { company: 'Ateliê Brisa', sector: 'Produção e serviços', context: 'A empresa fabrica produtos, vende por canais físico e digital e presta serviços de montagem.' },
+      { company: 'Grupo Rota Clara', sector: 'Comércio e serviços', context: 'A companhia ampliou as vendas digitais e encerrou uma unidade de negócio.' },
+      { company: 'Indústria Vale Verde', sector: 'Manufatura', context: 'A empresa expandiu a produção e revisou seus investimentos durante o período.' },
+      { company: 'Estúdio Horizonte', sector: 'Tecnologia e serviços', context: 'A companhia comercializa equipamentos, presta serviços técnicos e reorganiza sua operação.' }
     ][seed % 4];
     return makeCase(fallback, seed, 'automatico');
   }
-}async function readRoom(db, id) {
+}
+
+async function readRoom(db, id) {
   await db.prepare('INSERT OR IGNORE INTO rooms (id, state, checked, revision, updated_at) VALUES (?, ?, ?, 0, ?)').bind(id, JSON.stringify(emptyRoomState()), '{}', now()).run();
   return db.prepare('SELECT state, checked, revision, updated_at FROM rooms WHERE id = ?').bind(id).first();
 }
+
 async function bodyOf(request) {
   const type = request.headers.get('content-type') || '';
   if (!type.includes('application/json')) throw new Error('Envie dados em JSON.');
@@ -86,6 +62,7 @@ async function bodyOf(request) {
   if (text.length > 1000) throw new Error('Dados grandes demais.');
   return JSON.parse(text);
 }
+
 async function sameSecret(actual, supplied) {
   if (!actual || typeof supplied !== 'string') return false;
   const hash = text => crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
@@ -95,6 +72,7 @@ async function sameSecret(actual, supplied) {
   for (let i = 0; i < aa.length; i++) diff |= aa[i] ^ bb[i];
   return diff === 0;
 }
+
 export default {
   async fetch(request, env) {
     const origin = request.headers.get('Origin') || '';
@@ -121,7 +99,7 @@ export default {
         const { role } = await bodyOf(request);
         if (!FIELDS[role]) return json({ error: 'Área inválida.' }, 400, cors);
         const existing = parseRoom(await readRoom(env.DB, id));
-        const result = grade(role, existing.fields[role], existing.caseData);
+        const result = grade(role, existing.fields[role], existing.caseData, existing.fields);
         await env.DB.prepare('UPDATE rooms SET checked = json_set(checked, ?, json(?)), revision = revision + 1, updated_at = ? WHERE id = ?').bind(`$.${role}`, JSON.stringify(result), now(), id).run();
         return json({ result, room: parseRoom(await readRoom(env.DB, id)) }, 200, cors);
       }
@@ -136,9 +114,7 @@ export default {
           await env.DB.prepare('UPDATE rooms SET failed_resets = ?, locked_until = ? WHERE id = ?').bind(failures >= 5 ? 0 : failures, locked, id).run();
           return json({ error: locked ? 'Muitas tentativas. Aguarde 15 minutos.' : 'Senha incorreta.' }, locked ? 429 : 403, cors);
         }
-        let caseData;
-        try { caseData = await generateCase(env); }
-        catch { return json({ error: 'Nao foi possivel gerar uma nova DRE agora; as respostas foram preservadas.' }, 503, cors); }
+        const caseData = await generateCase(env);
         await env.DB.prepare('UPDATE rooms SET state = ?, checked = ?, revision = revision + 1, updated_at = ?, failed_resets = 0, locked_until = NULL WHERE id = ?').bind(JSON.stringify(emptyRoomState(caseData)), '{}', now(), id).run();
         return json(parseRoom(await readRoom(env.DB, id)), 200, cors);
       }
