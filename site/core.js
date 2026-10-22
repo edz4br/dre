@@ -2,22 +2,22 @@ export const CASE = {
   operational: [
     { key: 'revenue', label: 'Receita bruta', value: 2634789.56, kind: 'plus', group: 'Receitas e custos' },
     { key: 'cost', label: 'Custo dos produtos vendidos', value: 422890.78, kind: 'minus', group: 'Receitas e custos' },
-    { key: 'otherRevenue', label: 'Outras receitas operacionais', value: 0, kind: 'plus', group: 'Despesas e resultado operacional' },
+    { key: 'otherRevenue', label: 'Outras receitas operacionais', value: 26347.90, kind: 'plus', group: 'Despesas e resultado operacional' },
     { key: 'sales', label: 'Despesas de vendas', value: 74568.76, kind: 'minus', group: 'Despesas e resultado operacional' },
-    { key: 'research', label: 'Pesquisa e desenvolvimento', value: 0, kind: 'minus', group: 'Despesas e resultado operacional' },
+    { key: 'research', label: 'Pesquisa e desenvolvimento', value: 23713.11, kind: 'minus', group: 'Despesas e resultado operacional' },
     { key: 'admin', label: 'Despesas gerais e administrativas', value: 51812.93, kind: 'minus', group: 'Despesas e resultado operacional' },
-    { key: 'goodwill', label: 'Perda por redução do ágio', value: 0, kind: 'minus', group: 'Despesas e resultado operacional' },
+    { key: 'goodwill', label: 'Perda por redução do ágio', value: 13173.95, kind: 'minus', group: 'Despesas e resultado operacional' },
     { key: 'otherExpense', label: 'Outras despesas operacionais', value: 36874.30, kind: 'minus', group: 'Despesas e resultado operacional' }
   ],
   investment: [
-    { key: 'equity', label: 'Resultado de equivalência patrimonial', value: 0, kind: 'plus' },
-    { key: 'otherInvestment', label: 'Outras receitas e despesas de investimentos', value: 0, kind: 'plus' }
+    { key: 'equity', label: 'Resultado de equivalência patrimonial', value: 41200, kind: 'plus' },
+    { key: 'otherInvestment', label: 'Outras receitas e despesas de investimentos', value: 18750, kind: 'plus' }
   ],
   financing: [
     { key: 'interest', label: 'Juros de empréstimos e arrendamentos', value: 693900, kind: 'minus' },
-    { key: 'benefit', label: 'Juros de benefícios a empregados', value: 0, kind: 'minus' },
+    { key: 'benefit', label: 'Juros de benefícios a empregados', value: 9420, kind: 'minus' },
     { key: 'tax', label: 'Imposto de renda e contribuição social', value: 325138.27, kind: 'minus' },
-    { key: 'discontinued', label: 'Resultado de operações descontinuadas', value: 0, kind: 'plus' }
+    { key: 'discontinued', label: 'Resultado de operações descontinuadas', value: 16800, kind: 'plus' }
   ]
 };
 
