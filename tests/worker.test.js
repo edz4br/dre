@@ -8,9 +8,9 @@ test('API grava uma área, corrige e só reinicia com a senha do servidor', asyn
   const sqlite = new DatabaseSync(':memory:');
   sqlite.exec(readFileSync(new URL('../worker/schema.sql', import.meta.url), 'utf8'));
   const DB = { prepare(sql) { const stmt = sqlite.prepare(sql); return { bind(...args) { return { run: async () => stmt.run(...args), first: async () => stmt.get(...args) }; } }; } };
-  const generatedValues = { revenue: 1200000, cost: 500000, otherRevenue: 10000, sales: 45000, research: 0, admin: 80000, goodwill: 0, otherExpense: 15000, equity: 0, otherInvestment: 5000, interest: 30000, benefit: 0, tax: 100000, discontinued: 0 };
+  const generatedScenario = { company: 'Mercado Azul', sector: 'Varejo', context: 'A empresa vende produtos para o comércio local.' };
   let failAI = false;
-  const env = { DB, ALLOWED_ORIGIN: 'https://edz4br.github.io', RESET_PASSWORD: 'senha-forte-para-o-teste', AI: { async run() { if (failAI) throw new Error('AI unavailable'); return { response: { company: 'Mercado Azul', sector: 'Varejo', context: 'A empresa vende produtos para o comércio local.', values: generatedValues } }; } } };
+  const env = { DB, ALLOWED_ORIGIN: 'https://edz4br.github.io', RESET_PASSWORD: 'senha-forte-para-o-teste', AI: { async run() { if (failAI) throw new Error('AI unavailable'); return { response: generatedScenario }; } } };
   const base = 'https://api.exemplo.com/api/rooms/ABCDEFGHDRE';
   const call = async (suffix = '', method = 'GET', data) => {
     const response = await worker.fetch(new Request(base + suffix, { method, headers: { Origin: env.ALLOWED_ORIGIN, ...(data ? { 'Content-Type': 'application/json' } : {}) }, ...(data ? { body: JSON.stringify(data) } : {}) }), env);
@@ -26,15 +26,18 @@ test('API grava uma área, corrige e só reinicia com a senha do servidor', asyn
   assert.equal((await call('/reset', 'POST', { password: env.RESET_PASSWORD })).status, 200);
   const room = (await call()).data;
   assert.equal(room.fields.investment.equity, '');
-  assert.equal(room.caseData.operational.find(field => field.key === 'revenue').value, generatedValues.revenue);
+  assert.ok(room.caseData.operational.find(field => field.key === 'revenue').value > 100_000);
   assert.equal(room.caseData.metadata.company, 'Mercado Azul');
-  for (const key of ['revenue', 'cost', 'otherRevenue', 'sales', 'research', 'admin', 'goodwill', 'otherExpense']) {
-    await call('/fields', 'PATCH', { role: 'operational', field: key, value: String(generatedValues[key]) });
+  assert.equal(room.caseData.metadata.source, 'IA');
+  for (const field of room.caseData.operational) {
+    await call('/fields', 'PATCH', { role: 'operational', field: field.key, value: String(field.value) });
   }
   assert.equal((await call('/check', 'POST', { role: 'operational' })).data.result.correct, true);
   await call('/fields', 'PATCH', { role: 'operational', field: 'revenue', value: '123' });
   failAI = true;
-  assert.equal((await call('/reset', 'POST', { password: env.RESET_PASSWORD })).status, 503);
-  assert.equal((await call()).data.fields.operational.revenue, '123');
+  assert.equal((await call('/reset', 'POST', { password: env.RESET_PASSWORD })).status, 200);
+  const fallback = (await call()).data;
+  assert.equal(fallback.fields.operational.revenue, '');
+  assert.equal(fallback.caseData.metadata.source, 'automatico');
   sqlite.close();
 });

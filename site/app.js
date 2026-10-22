@@ -106,7 +106,7 @@ function renderRole() {
 function renderFacts() {
   const parts = [['Operacional', state.caseData.operational], ['Investimento', state.caseData.investment], ['Financiamento e tributos', state.caseData.financing]];
   const metadata = state.caseData.metadata;
-  $('case-context').innerHTML = metadata ? `<div class="case-context"><strong>${esc(metadata.company)} · ${esc(metadata.sector)}</strong><p>${esc(metadata.context)}</p><small>Caso gerado por IA em ${new Date(metadata.generatedAt).toLocaleString('pt-BR')}</small></div>` : '';
+  $('case-context').innerHTML = metadata ? `<div class="case-context"><strong>${esc(metadata.company)} · ${esc(metadata.sector)}</strong><p>${esc(metadata.context)}</p><small>${metadata.source === 'IA' ? 'Caso criado por IA' : 'Caso criado automaticamente'} · ${new Date(metadata.generatedAt).toLocaleString('pt-BR')}</small></div>` : '';
   $('case-facts').innerHTML = parts.map(([title, fields]) => `<div class="fact-group"><h3>${title}</h3>${fields.map(f => `<div class="fact"><span>${esc(f.label)}</span><strong class="${f.value === 0 ? 'zero' : ''}">${f.value === 0 ? 'Não ocorreu' : formatMoney(Math.round(f.value * 100))}</strong></div>`).join('')}</div>`).join('');
 }
 function renderPreview() {

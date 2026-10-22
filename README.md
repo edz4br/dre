@@ -32,3 +32,5 @@ Segundo os slides, cada gerente apura sua área e o controller faz o cálculo fi
 ## Novas DREs com IA
 
 Ao confirmar o botão **Nova DRE** com a senha do controller, o Worker usa Cloudflare Workers AI para criar uma empresa fictícia, um contexto e novos valores. O servidor valida os dados, calcula a correção de forma determinística e grava o caso junto à sala no D1, para que todos vejam o mesmo exercício. Se a IA falhar ou produzir números incoerentes, a sala e as respostas atuais são preservadas. A integração usa o binding `AI` configurado em `worker/wrangler.jsonc`; os casos são gerados na versão online, não na demonstração local.
+
+Os dados de cada exercício são calculados pelo Worker dentro de faixas plausíveis, para garantir que os subtotais fechem. A IA cria o nome, o setor e o contexto da empresa; se o serviço estiver indisponível, o site usa um cenário reserva e ainda gera novos números.
