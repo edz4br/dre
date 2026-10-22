@@ -19,28 +19,28 @@ $('room-code').textContent = room;
 
 const HELP = {
   operational: [
-    ['Dividam a aba', 'Um gerente pode apurar receita bruta, deduções e custos. O outro pode apurar as demais receitas e despesas operacionais. Os dois usam os mesmos dados e campos.'],
-    ['Apurem a receita bruta', 'Somem as vendas de mercadorias e as receitas de prestação de serviços. O total dessa soma é a receita bruta; não copiem uma conta isolada como se já fosse o subtotal.'],
-    ['Apurem as deduções e os custos', 'Somem devoluções, abatimentos e impostos sobre vendas para obter as deduções. Para os custos, somem mercadorias vendidas, serviços prestados, materiais, mão de obra direta e fretes sobre compras.'],
-    ['Apurem as despesas operacionais', 'Somem as contas de cada grupo. Fretes sobre compras entram em custos; fretes sobre vendas entram em despesas de vendas. Gastos administrativos ficam separados dos custos.'],
-    ['Confiram sua área', 'Registrem o total apurado em cada campo. Gastos e deduções são digitados como valores positivos; a DRE mostra quando devem ser subtraídos.']
+    ['Dividam a apuração', 'Os dois gerentes compartilham esta aba. Um pode somar receitas e custos; o outro pode apurar as demais contas operacionais e revisar os subtotais.'],
+    ['Somem as receitas brutas', 'Juntem os valores de venda de mercadorias e de prestação de serviços. O campo pede o total das contas de origem, não um valor já apurado.'],
+    ['Somem os custos e calculem o lucro bruto', 'Juntem mercadorias vendidas, serviços prestados, materiais, mão de obra direta e fretes sobre compras. Depois subtraiam os custos das receitas brutas.'],
+    ['Apurem cada conta operacional', 'Somem as contas de outras receitas, vendas, pesquisa e desenvolvimento, despesas administrativas, perda por redução do ágio e outras despesas operacionais. Fretes sobre compras ficam nos custos; fretes sobre vendas ficam nas despesas de vendas.'],
+    ['Calculem o resultado operacional', 'Partam do lucro bruto, adicionem outras receitas operacionais e subtraiam as despesas operacionais. Digitem despesas como valores positivos; o sinal de subtração já aparece na DRE.']
   ],
   investment: [
-    ['Apurem a equivalência patrimonial', 'Somem os resultados informados para cada empresa coligada. O resultado de equivalência entra na categoria de investimentos.'],
-    ['Apurem outras receitas e despesas', 'Somem as receitas de investimentos e subtraiam os valores marcados com (−), como uma perda de remensuração. Registrem o resultado líquido da soma.'],
-    ['Entreguem ao controller', 'O controller soma os seus resultados ao resultado operacional para chegar ao resultado antes do financiamento e dos tributos.']
+    ['Apurem a equivalência patrimonial', 'Somem os resultados informados para cada empresa coligada. Essa conta pertence à categoria de investimentos.'],
+    ['Apurem outras receitas e despesas de investimentos', 'Somem as receitas de investimento e subtraiam os valores marcados com (−), como a perda na remensuração. Registrem o resultado da soma.'],
+    ['Calculem o resultado antes do financiamento e tributos', 'Adicionem o resultado operacional às duas apurações de investimento. Esse subtotal fecha a parte do gerente de investimento.']
   ],
   financing: [
-    ['Apurem os juros', 'Somem os juros de empréstimos e de arrendamentos. Façam outra soma para os juros das obrigações de benefícios aos empregados.'],
-    ['Calculem os tributos sobre o lucro', 'A base é o resultado operacional mais os investimentos, menos os juros de financiamento. Se o subtotal “Antes do imposto” já aparecer na DRE ao vivo, usem esse valor. Calculem IRPJ de 15% e CSLL de 9% sobre a base e somem os dois tributos.'],
-    ['Apurem operações descontinuadas', 'Subtraiam as despesas da unidade descontinuada da receita dessa mesma unidade. Registrem o resultado líquido.'],
-    ['Confiram os sinais', 'Registrem despesas e tributos como valores positivos. O formato da DRE mostra essas linhas como deduções.']
+    ['Somem os juros de financiamento', 'Juntem os juros de empréstimos e leasings. Em outro campo, juntem os juros das obrigações de benefícios aos empregados.'],
+    ['Calculem o resultado antes do imposto', 'Subtraiam os dois grupos de juros do resultado antes do financiamento e tributos.'],
+    ['Calculem IR e CSLL', 'Apliquem as duas alíquotas informadas no caso, separadamente, sobre o resultado antes do imposto de renda. Somem os dois tributos e registrem o total.'],
+    ['Confiram os sinais', 'Digitem juros e tributos como valores positivos. A DRE mostra essas linhas como deduções.']
   ],
   controller: [
-    ['Recebam as apurações', 'Veja a DRE ao vivo nesta página e use os totais calculados pelos gerentes. O controller fecha o relatório depois das apurações das áreas.'],
-    ['Calculem em sequência', 'Receita bruta menos deduções resulta na receita líquida. Subtraiam os custos para obter o lucro bruto. Depois, ajustem pelas receitas, despesas, investimentos, juros e tributos.'],
-    ['Registrem os seis resultados', 'Preencha cada subtotal na ordem da DRE. O site confere suas contas; cada gerente continua responsável pelos próprios valores.'],
-    ['Assinem e entreguem', 'No exercício presencial, o controller assina o relatório final e o entrega ao professor. Este simulado não envia o trabalho.']
+    ['Feche a operação descontinuada', 'Some a receita da unidade encerrada e subtraia as despesas identificadas com (−). Registre o resultado líquido.'],
+    ['Feche o resultado do exercício', 'Use o resultado antes do imposto, subtraia IR e CSLL apurados pelo gerente de financiamento e adicione o resultado de operações descontinuadas.'],
+    ['Confira as apurações do grupo', 'A DRE ao vivo reúne as contas e os subtotais informados por cada gerente. O controller conclui o fechamento final sem alterar os cálculos de cada área.'],
+    ['Assine e entregue', 'No exercício presencial, o controller assina o relatório final e o entrega ao professor. Este simulado não envia o trabalho.']
   ]
 };
 
@@ -96,22 +96,24 @@ function renderTabs() {
 }
 function renderFields(role) {
   const groups = role === 'operational' ? ['Receitas e custos', 'Despesas e resultado operacional'] : [null];
+  const rates = state.caseData.taxRates;
   return groups.map(group => `${group ? `<h3 class="section-title">${group}</h3>` : ''}${FIELDS[role].filter(field => !group || field.group === group).map(field => {
     const checked = state.checked[role]?.fields?.[field.key];
-    return `<div class="field-row ${checked === true ? 'good' : checked === false ? 'bad' : ''}"><div><label for="f-${field.key}">${esc(field.label)}</label>${field.formula ? `<small>${esc(field.formula)}</small>` : ''}${checked === false ? '<div class="feedback bad">Confira este valor</div>' : checked === true ? '<div class="feedback good">Correto</div>' : ''}</div><div class="field-input"><span>R$</span><input id="f-${field.key}" data-field="${field.key}" inputmode="decimal" autocomplete="off" placeholder="Total" value="${esc(state.fields[role][field.key])}" aria-label="${esc(field.label)} em reais"></div></div>`;
+    const formula = field.key === 'tax' ? `Calcule IRPJ (${rates.ir}%) + CSLL (${rates.csll}%) separadamente sobre o resultado antes do imposto.` : field.formula;
+    return `<div class="field-row ${field.kind === 'subtotal' ? 'calculated-field' : ''} ${checked === true ? 'good' : checked === false ? 'bad' : ''}"><div><label for="f-${field.key}">${esc(field.label)}</label>${formula ? `<small>${esc(formula)}</small>` : ''}${checked === false ? '<div class="feedback bad">Confira este valor</div>' : checked === true ? '<div class="feedback good">Correto</div>' : ''}</div><div class="field-input"><span>R$</span><input id="f-${field.key}" data-field="${field.key}" inputmode="decimal" autocomplete="off" placeholder="Total apurado" value="${esc(state.fields[role][field.key])}" aria-label="${esc(field.label)} em reais"></div></div>`;
   }).join('')}`).join('');
 }
 function renderRole() {
   const info = ROLES.find(role => role.id === active);
   const subtitles = {
-    operational: 'Os dois gerentes operacionais apuram os totais de receitas, deduções, custos e despesas a partir das contas de origem.',
-    investment: 'Apure as participações e outras receitas e despesas dos investimentos a partir das contas de origem.',
-    financing: 'Apure juros, tributos sobre o lucro e o resultado de operações descontinuadas.',
-    controller: 'Use as apurações dos gerentes para calcular e registrar os subtotais finais.'
+    operational: 'Os dois gerentes compartilham esta aba e apuram as contas até o resultado operacional.',
+    investment: 'Apure as contas de investimento e o resultado antes do financiamento e tributos.',
+    financing: 'Apure as contas de financiamento, o resultado antes do imposto e IR e CSLL.',
+    controller: 'Confira as apurações do grupo e faça o fechamento final da DRE.'
   };
   const result = state.checked[active];
-  const footerPrompt = active === 'controller' ? 'Use os valores apurados pelos gerentes e feche os subtotais na sequência da DRE.' : 'Apure os totais a partir das contas de origem e registre-os aqui. O caso traz valores para todas as linhas.';
-  $('role-content').innerHTML = `<div class="role-heading"><div><p class="eyebrow">ÁREA ${info.number} · ${info.people.toUpperCase()}</p><h2>${info.name}</h2><p>${subtitles[active]}</p></div><button class="help-button" id="help">ajuda?</button></div>${renderFields(active)}<div class="role-footer"><p>${footerPrompt}</p><button class="primary" id="correct">Corrigir minha parte</button></div>${result ? `<div class="result ${result.correct ? 'success' : 'partial'}" role="status"><strong>${result.correct ? 'Tudo certo nesta área!' : `${result.count} de ${result.total} campos corretos`}</strong>${result.correct ? 'Sua apuração foi conferida. O grupo já pode usar estes valores no fechamento.' : 'Revise os campos destacados e tente novamente. A ajuda explica a ordem do cálculo.'}</div>` : ''}`;
+  const footerPrompt = active === 'controller' ? 'Feche o resultado final depois das apurações dos gerentes.' : 'Some as contas de origem, calcule os subtotais da sua área e registre os valores.';
+  $('role-content').innerHTML = `<div class="role-heading"><div><p class="eyebrow">ÁREA ${info.number} · ${info.people.toUpperCase()}</p><h2>${info.name}</h2><p>${subtitles[active]}</p></div><button class="help-button" id="help">ajuda?</button></div>${renderFields(active)}<div class="role-footer"><p>${footerPrompt}</p><button class="primary" id="correct">Corrigir minha parte</button></div>${result ? `<div class="result ${result.correct ? 'success' : 'partial'}" role="status"><strong>${result.correct ? 'Tudo certo nesta área!' : `${result.count} de ${result.total} campos corretos`}</strong>${result.correct ? 'Sua apuração foi conferida. O grupo já pode seguir com a DRE.' : 'Revise os campos destacados e tente novamente. A ajuda explica a ordem do cálculo.'}</div>` : ''}`;
   $('help').onclick = openHelp;
   $('correct').onclick = correct;
   $('role-content').querySelectorAll('[data-field]').forEach(input => {
@@ -125,9 +127,10 @@ function renderRole() {
   });
 }
 function renderFacts() {
-  const parts = [['operational', 'Operacional'], ['investment', 'Investimento'], ['financing', 'Financiamento e tributos']];
+  const parts = [['operational', 'Operacional'], ['investment', 'Investimento'], ['financing', 'Financiamento'], ['controller', 'Fechamento do controller']];
   const metadata = state.caseData.metadata;
-  $('case-context').innerHTML = metadata ? `<div class="case-context"><strong>${esc(metadata.company)} · ${esc(metadata.sector)}</strong><p>${esc(metadata.context)}</p><small>${metadata.source === 'IA' ? 'Caso criado por IA' : 'Caso criado automaticamente'} · ${new Date(metadata.generatedAt).toLocaleString('pt-BR')}</small></div>` : '';
+  const generatedAt = metadata?.generatedAt ? ` · ${new Date(metadata.generatedAt).toLocaleString('pt-BR')}` : '';
+  $('case-context').innerHTML = metadata ? `<div class="case-context"><strong>${esc(metadata.company)} · ${esc(metadata.sector)}</strong><p>${esc(metadata.context)}</p><small>${metadata.source === 'IA' ? 'Contexto criado por IA' : 'Caso criado automaticamente'}${generatedAt}</small></div>` : '';
   $('case-facts').innerHTML = parts.map(([role, title]) => {
     const groups = Object.entries(state.caseData.sources?.[role] || {});
     const facts = groups.map(([key, items]) => {
@@ -135,9 +138,9 @@ function renderFacts() {
       if (!field || !items.length) return '';
       return `<div class="source-set"><strong>${esc(field.label)}</strong>${items.map(entry => `<div class="fact"><span>${entry.effect === 'subtract' ? '(−) ' : '(+) '}${esc(entry.label)}</span><strong>${formatMoney(Math.round(entry.value * 100))}</strong></div>`).join('')}</div>`;
     }).join('');
-    const taxNote = role === 'financing' ? '<div class="source-note"><strong>Impostos sobre o lucro</strong><p>Base: resultado operacional + investimentos − juros de financiamento. Calcule IRPJ (15%) + CSLL (9%) sobre a base.</p></div>' : '';
-    const accountCount = groups.reduce((total, [, items]) => total + items.length, 0) + (role === 'financing' ? 1 : 0);
-    return `<details class="fact-group" ${active === role ? 'open' : ''}><summary>${title}<span>${accountCount} contas e cálculos</span></summary>${facts}${taxNote}</details>`;
+    const taxNote = role === 'financing' ? `<div class="source-note"><strong>Alíquotas do caso</strong><p>Base: resultado antes do imposto de renda. Calcule IRPJ (${state.caseData.taxRates.ir}%) e CSLL (${state.caseData.taxRates.csll}%) separadamente e some os dois valores.</p></div>` : '';
+    const accountCount = groups.reduce((total, [, items]) => total + items.length, 0) + (role === 'financing' ? 2 : 0);
+    return `<details class="fact-group" ${active === role ? 'open' : ''}><summary>${title}<span>${accountCount} contas de origem</span></summary>${facts}${taxNote}</details>`;
   }).join('');
 }
 function renderPreview() {
@@ -146,21 +149,26 @@ function renderPreview() {
     const value = normalizeMoney(state.fields[role][key]);
     rows.push(`<div class="dre-row ${subtotal ? 'subtotal' : ''} ${final ? 'final' : ''}"><span>${esc(label)}</span><strong>${formatMoney(value)}</strong></div>`);
   };
-  const sign = field => field.kind === 'minus' ? '(−)' : field.kind === 'variable' ? '(±)' : '(+)';
-  for (const field of FIELDS.operational.slice(0, 2)) add(`${sign(field)} ${field.label}`, 'operational', field.key);
-  add('= Receita líquida', 'controller', 'netRevenue', true);
-  const cost = FIELDS.operational[2];
-  add(`${sign(cost)} ${cost.label}`, 'operational', cost.key);
-  add('= Lucro bruto', 'controller', 'gross', true);
-  for (const field of FIELDS.operational.slice(3)) add(`${sign(field)} ${field.label}`, 'operational', field.key);
-  add('= Resultado operacional', 'controller', 'operating', true);
-  for (const field of FIELDS.investment) add(`${sign(field)} ${field.label}`, 'investment', field.key);
-  add('= Antes do financiamento e tributos', 'controller', 'beforeFinance', true);
-  for (const field of FIELDS.financing.slice(0, 2)) add(`${sign(field)} ${field.label}`, 'financing', field.key);
-  add('= Antes do imposto', 'controller', 'beforeTax', true);
-  for (const field of FIELDS.financing.slice(2)) add(`${sign(field)} ${field.label}`, 'financing', field.key);
-  add('= RESULTADO DO EXERCÍCIO', 'controller', 'final', true, true);
-  $('dre-preview').innerHTML = rows.join('') + '<p class="live-note">Os valores exibidos são as apurações do grupo. Os subtotais são preenchidos pelo controller.</p>';
+  add('Receitas brutas', 'operational', 'revenue');
+  add('(-) Custos dos produtos e serviços vendidos', 'operational', 'cost');
+  add('= Lucro bruto', 'operational', 'gross', true);
+  add('(+) Outras receitas operacionais', 'operational', 'otherRevenue');
+  add('(-) Despesas de vendas', 'operational', 'sales');
+  add('(-) Despesas de pesquisa e desenvolvimento', 'operational', 'research');
+  add('(-) Despesas gerais e administrativas', 'operational', 'admin');
+  add('(+/-) Perda por redução ao valor recuperável do ágio', 'operational', 'goodwill');
+  add('(-) Outras despesas operacionais', 'operational', 'otherExpense');
+  add('= Resultado operacional', 'operational', 'operating', true);
+  add('Resultado de equivalência patrimonial', 'investment', 'equity');
+  add('(+) Outras receitas e despesas de investimentos', 'investment', 'otherInvestment');
+  add('= Resultado antes do financiamento e tributos', 'investment', 'beforeFinance', true);
+  add('(-) Despesas de juros com empréstimos e leasings', 'financing', 'interest');
+  add('(-) Despesas de juros com benefícios a empregados', 'financing', 'benefit');
+  add('= Resultado antes do imposto de renda', 'financing', 'beforeTax', true);
+  add('(-) Imposto de renda e contribuição social', 'financing', 'tax');
+  add('(+) Resultado de operações descontinuadas', 'controller', 'discontinued');
+  add('= Resultado do exercício', 'controller', 'final', true, true);
+  $('dre-preview').innerHTML = rows.join('') + '<p class="live-note">As contas detalhadas ficam ao lado. Cada valor aparece quando a área responsável faz sua apuração.</p>';
 }
 function renderAll() {
   const focused = document.activeElement?.dataset?.field;
@@ -195,7 +203,7 @@ async function correct() {
       state.checked[role] = response.result;
       merge(response.room);
     } else {
-      state.checked[role] = grade(role, state.fields[role], state.caseData);
+      state.checked[role] = grade(role, state.fields[role], state.caseData, state.fields);
       persistLocal(); renderRole();
     }
   } catch (error) { show(`Não foi possível corrigir: ${error.message}`); button.disabled = false; }
@@ -210,9 +218,7 @@ async function reset(password) {
     const data = await request(`/api/rooms/${room}/reset`, { method: 'POST', body: JSON.stringify({ password }) });
     pending.clear(); merge(data);
   } else {
-    if (password !== 'treino') throw new Error('Senha incorreta. Na demonstração local, use "treino".');
-    state = { fields: EMPTY(), caseData: normalizeCaseData(CASE), checked: {}, updatedAt: null, revision: state.revision };
-    pending.clear(); persistLocal(); renderAll();
+    throw new Error('O servidor precisa estar conectado para gerar outra DRE com segurança.');
   }
 }
 
