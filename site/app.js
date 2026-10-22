@@ -5,7 +5,7 @@ const requestedRoom = new URLSearchParams(location.search).get('sala');
 const room = requestedRoom?.match(/^[A-Z0-9]{8,12}$/i)?.[0].toUpperCase() || makeRoom();
 const roleFromUrl = location.hash.slice(1);
 let active = ROLES.some(r => r.id === roleFromUrl) ? roleFromUrl : 'operational';
-let state = { fields: EMPTY(), checked: {}, updatedAt: null, revision: 0 };
+let state = { fields: EMPTY(), caseData: CASE, checked: {}, updatedAt: null, revision: 0 };
 let pending = new Set();
 let saving = Promise.resolve();
 let remoteError = false;
@@ -32,7 +32,7 @@ const HELP = {
   financing: [
     ['Separem juros e tributos', 'Juros de empréstimos e arrendamentos reduzem o resultado antes do imposto. Depois entram imposto de renda e contribuição social.'],
     ['Preencham ausências', 'Juros de benefícios a empregados e operações descontinuadas que não ocorreram recebem 0.'],
-    ['Não invertam o sinal', 'Digitem cada despesa como valor positivo. A DRE mostra o sinal de subtração. O resultado de operações descontinuadas pode somar ou reduzir, dependendo do caso; aqui não ocorreu.']
+    ['N\u00e3o invertam o sinal', 'Digitem cada despesa como valor positivo. A DRE mostra o sinal de subtra\u00e7\u00e3o. O resultado de opera\u00e7\u00f5es descontinuadas pode aumentar ou reduzir o resultado; usem o valor informado nos dados do caso.'],
   ],
   controller: [
     ['Recebam as apurações', 'Veja a DRE ao vivo nesta página. Os gerentes apuram seus campos e você usa os valores que eles entregaram. No trabalho descrito nos slides, o controller faz o cálculo final e entrega o relatório.'],
@@ -45,7 +45,9 @@ const HELP = {
 function sanitizeServer(data) {
   const fields = EMPTY();
   for (const role of ROLES) for (const f of FIELDS[role.id]) fields[role.id][f.key] = String(data?.fields?.[role.id]?.[f.key] ?? '').slice(0, 32);
-  return { fields, checked: data?.checked || {}, updatedAt: data?.updatedAt || null, revision: Number(data?.revision) || 0 };
+  const caseData = Object.fromEntries(['operational', 'investment', 'financing'].map(group => [group, CASE[group].map(field => ({ ...field, value: Number(data?.caseData?.[group]?.find(item => item.key === field.key)?.value ?? field.value) }))]));
+  caseData.metadata = data?.caseData?.metadata || null;
+  return { fields, caseData, checked: data?.checked || {}, updatedAt: data?.updatedAt || null, revision: Number(data?.revision) || 0 };
 }
 function localKey() { return `dre-simulado:${room}`; }
 function persistLocal() { state.updatedAt = new Date().toISOString(); state.revision++; localStorage.setItem(localKey(), JSON.stringify(state)); channel?.postMessage(state); renderMeta(); renderTabs(); renderPreview(); }
@@ -102,7 +104,9 @@ function renderRole() {
   });
 }
 function renderFacts() {
-  const parts = [['Operacional', CASE.operational], ['Investimento', CASE.investment], ['Financiamento e tributos', CASE.financing]];
+  const parts = [['Operacional', state.caseData.operational], ['Investimento', state.caseData.investment], ['Financiamento e tributos', state.caseData.financing]];
+  const metadata = state.caseData.metadata;
+  $('case-context').innerHTML = metadata ? `<div class="case-context"><strong>${esc(metadata.company)} · ${esc(metadata.sector)}</strong><p>${esc(metadata.context)}</p><small>Caso gerado por IA em ${new Date(metadata.generatedAt).toLocaleString('pt-BR')}</small></div>` : '';
   $('case-facts').innerHTML = parts.map(([title, fields]) => `<div class="fact-group"><h3>${title}</h3>${fields.map(f => `<div class="fact"><span>${esc(f.label)}</span><strong class="${f.value === 0 ? 'zero' : ''}">${f.value === 0 ? 'Não ocorreu' : formatMoney(Math.round(f.value * 100))}</strong></div>`).join('')}</div>`).join('');
 }
 function renderPreview() {
@@ -111,13 +115,13 @@ function renderPreview() {
     const value = normalizeMoney(state.fields[role][key]);
     rows.push(`<div class="dre-row ${subtotal ? 'subtotal' : ''} ${final ? 'final' : ''}"><span>${esc(label)}</span><strong>${formatMoney(value)}</strong></div>`);
   };
-  for (const f of CASE.operational.slice(0,2)) add(`${f.kind === 'minus' ? '(−)' : '(+)'} ${f.label}`, 'operational', f.key);
+  for (const f of state.caseData.operational.slice(0,2)) add(`${f.kind === 'minus' ? '(-)' : '(+)'} ${f.label}`, 'operational', f.key);
   add('= Lucro bruto', 'controller', 'gross', true);
-  for (const f of CASE.operational.slice(2)) add(`${f.kind === 'minus' ? '(−)' : '(+)'} ${f.label}`, 'operational', f.key);
+  for (const f of state.caseData.operational.slice(2)) add(`${f.kind === 'minus' ? '(-)' : '(+)'} ${f.label}`, 'operational', f.key);
   add('= Resultado operacional', 'controller', 'operating', true);
-  for (const f of CASE.investment) add(`(+) ${f.label}`, 'investment', f.key);
+  for (const f of state.caseData.investment) add(`(+) ${f.label}`, 'investment', f.key);
   add('= Antes do financiamento e tributos', 'controller', 'beforeFinance', true);
-  for (const f of CASE.financing.slice(0,2)) add(`(−) ${f.label}`, 'financing', f.key);
+  for (const f of state.caseData.financing.slice(0,2)) add(`(-) ${f.label}`, 'financing', f.key);
   add('= Antes do imposto', 'controller', 'beforeTax', true);
   add('(−) Imposto de renda e contribuição social', 'financing', 'tax');
   add('(+) Operações descontinuadas', 'financing', 'discontinued');
@@ -126,7 +130,7 @@ function renderPreview() {
 }
 function renderAll() {
   const focused = document.activeElement?.dataset?.field;
-  renderMeta(); renderTabs(); renderPreview();
+  renderMeta(); renderTabs(); renderPreview(); renderFacts();
   if (focused) {
     $('role-content').querySelectorAll('[data-field]').forEach(input => {
       if (input.dataset.field !== focused) input.value = state.fields[active][input.dataset.field];
@@ -156,7 +160,7 @@ async function correct() {
       const response = await request(`/api/rooms/${room}/check`, { method: 'POST', body: JSON.stringify({ role }) });
       state.checked[role] = response.result;
       merge(response.room);
-    } else { state.checked[role] = grade(role, state.fields[role]); persistLocal(); renderRole(); }
+    } else { state.checked[role] = grade(role, state.fields[role], state.caseData); persistLocal(); renderRole(); }
   } catch (error) { show(`Não foi possível corrigir: ${error.message}`); button.disabled = false; }
 }
 function openHelp() {
@@ -166,12 +170,12 @@ function openHelp() {
 }
 async function reset(password) {
   if (api) { const data = await request(`/api/rooms/${room}/reset`, { method: 'POST', body: JSON.stringify({ password }) }); pending.clear(); merge(data); }
-  else { if (password !== 'treino') throw new Error('Senha incorreta. Na demonstração local, use “treino”.'); state = { fields: EMPTY(), checked: {}, updatedAt: null, revision: state.revision }; pending.clear(); persistLocal(); renderAll(); }
+  else { if (password !== 'treino') throw new Error('Senha incorreta. Na demonstração local, use “treino”.'); state = { fields: EMPTY(), caseData: CASE, checked: {}, updatedAt: null, revision: state.revision }; pending.clear(); persistLocal(); renderAll(); }
 }
 $('tabs').addEventListener('click', event => { const button = event.target.closest('[data-role]'); if (!button) return; active = button.dataset.role; location.hash = active; renderTabs(); renderRole(); });
 $('share').onclick = async () => { try { await navigator.clipboard.writeText(location.href); show('Link da sala copiado.'); } catch { show(`Código da sala: ${room}`); } };
 $('reset').onclick = () => { $('reset-error').textContent = ''; $('reset-password').value = ''; $('reset-demo').hidden = !!api; $('reset-dialog').showModal(); };
-$('reset-form').onsubmit = async event => { event.preventDefault(); const button = $('reset-form').querySelector('[type=submit]'); button.disabled = true; try { await reset($('reset-password').value); $('reset-dialog').close(); show('DRE reiniciada para o grupo.'); } catch (error) { $('reset-error').textContent = error.message; } finally { button.disabled = false; } };
+$('reset-form').onsubmit = async event => { event.preventDefault(); const button = $('reset-form').querySelector('[type=submit]'); button.disabled = true; button.textContent = 'Gerando nova DRE…'; try { await reset($('reset-password').value); $('reset-dialog').close(); show('Nova DRE criada para o grupo.'); } catch (error) { $('reset-error').textContent = error.message; } finally { button.disabled = false; button.textContent = 'Gerar nova DRE'; } };
 $('close-help').onclick = $('help-ok').onclick = () => $('help-dialog').close();
 $('close-reset').onclick = $('cancel-reset').onclick = () => $('reset-dialog').close();
 channel?.addEventListener('message', event => { if (event.data?.revision > state.revision) merge(event.data); });

@@ -1,12 +1,64 @@
-import { EMPTY, FIELDS, grade } from '../site/core.js';
+import { CASE, EMPTY, FIELDS, grade } from '../site/core.js';
 
 const json = (body, status = 200, origin = '') => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...(origin ? { 'Access-Control-Allow-Origin': origin, Vary: 'Origin' } : {}) } });
 const fieldsOk = (role, field) => FIELDS[role]?.some(item => item.key === field);
 const roomOk = value => /^[A-Z0-9]{8,12}$/.test(value);
 const now = () => new Date().toISOString();
-const parseRoom = row => ({ fields: JSON.parse(row.state), checked: JSON.parse(row.checked), revision: row.revision, updatedAt: row.updated_at });
+function parseRoom(row) {
+  const stored = JSON.parse(row.state);
+  const caseData = stored.__caseData || CASE;
+  delete stored.__caseData;
+  return { fields: stored, caseData, checked: JSON.parse(row.checked), revision: row.revision, updatedAt: row.updated_at };
+}
+const emptyRoomState = (caseData = CASE) => ({ ...EMPTY(), __caseData: caseData });
+const caseKeys = Object.values(CASE).flat().map(field => field.key);
+const caseSchema = {
+  type: 'object', additionalProperties: false, required: ['company', 'sector', 'context', 'values'],
+  properties: {
+    company: { type: 'string' }, sector: { type: 'string' }, context: { type: 'string' },
+    values: { type: 'object', additionalProperties: false, required: caseKeys, properties: Object.fromEntries(caseKeys.map(key => [key, { type: 'number', minimum: 0 }])) }
+  }
+};
+function makeCase(data) {
+  const payload = typeof data?.response === 'string' ? JSON.parse(data.response) : data?.response;
+  const values = payload?.values;
+  if (!values || caseKeys.some(key => !Number.isFinite(values[key]) || values[key] < 0 || values[key] > 100_000_000)) throw new Error('Invalid AI case');
+  const rounded = Object.fromEntries(caseKeys.map(key => [key, Math.round(values[key] * 100) / 100]));
+  const byKey = rounded;
+  const operating = byKey.revenue - byKey.cost + byKey.otherRevenue - byKey.sales - byKey.research - byKey.admin - byKey.goodwill - byKey.otherExpense;
+  const beforeFinance = operating + byKey.equity + byKey.otherInvestment;
+  const beforeTax = beforeFinance - byKey.interest - byKey.benefit;
+  if (byKey.revenue < 100_000 || byKey.revenue > 5_000_000 || byKey.revenue <= byKey.cost || operating <= 0 || beforeTax <= 0 || byKey.tax > beforeTax * 0.4) throw new Error('Incoherent AI case');
+  const metadata = {
+    company: String(payload.company || '').trim().slice(0, 70),
+    sector: String(payload.sector || '').trim().slice(0, 70),
+    context: String(payload.context || '').trim().slice(0, 220),
+    generatedAt: now()
+  };
+  if (Object.values(metadata).slice(0, 3).some(value => !value)) throw new Error('Incomplete AI case');
+  return {
+    operational: CASE.operational.map(field => ({ ...field, value: byKey[field.key] })),
+    investment: CASE.investment.map(field => ({ ...field, value: byKey[field.key] })),
+    financing: CASE.financing.map(field => ({ ...field, value: byKey[field.key] })),
+    metadata
+  };
+}
+async function generateCase(env) {
+  if (!env.AI) throw new Error('AI binding unavailable');
+  const response = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
+    messages: [
+      { role: 'system', content: 'Crie casos didáticos de DRE em português brasileiro. Gere apenas valores positivos para despesas. Respeite a matemática e os limites descritos. Não invente novos campos.' },
+      { role: 'user', content: `Crie uma nova empresa fictícia e uma situação curta para exercício de DRE. Gere valores em reais, com até duas casas decimais, para estas chaves: ${caseKeys.join(', ')}. Receita entre R$ 100.000 e R$ 5.000.000; custo abaixo da receita; resultado operacional e resultado antes de tributos positivos; juros e demais despesas plausíveis; imposto de até 40% do resultado antes de tributos. Alguns itens podem valer zero quando não ocorreram. Contexto em uma frase. ` }
+    ],
+    response_format: { type: 'json_schema', json_schema: caseSchema },
+    max_tokens: 600,
+    temperature: 0.85,
+    seed: crypto.getRandomValues(new Uint32Array(1))[0] || 1
+  });
+  return makeCase(response);
+}
 async function readRoom(db, id) {
-  await db.prepare('INSERT OR IGNORE INTO rooms (id, state, checked, revision, updated_at) VALUES (?, ?, ?, 0, ?)').bind(id, JSON.stringify(EMPTY()), '{}', now()).run();
+  await db.prepare('INSERT OR IGNORE INTO rooms (id, state, checked, revision, updated_at) VALUES (?, ?, ?, 0, ?)').bind(id, JSON.stringify(emptyRoomState()), '{}', now()).run();
   return db.prepare('SELECT state, checked, revision, updated_at FROM rooms WHERE id = ?').bind(id).first();
 }
 async function bodyOf(request) {
@@ -51,7 +103,7 @@ export default {
         const { role } = await bodyOf(request);
         if (!FIELDS[role]) return json({ error: 'Área inválida.' }, 400, cors);
         const existing = parseRoom(await readRoom(env.DB, id));
-        const result = grade(role, existing.fields[role]);
+        const result = grade(role, existing.fields[role], existing.caseData);
         await env.DB.prepare('UPDATE rooms SET checked = json_set(checked, ?, json(?)), revision = revision + 1, updated_at = ? WHERE id = ?').bind(`$.${role}`, JSON.stringify(result), now(), id).run();
         return json({ result, room: parseRoom(await readRoom(env.DB, id)) }, 200, cors);
       }
@@ -66,7 +118,10 @@ export default {
           await env.DB.prepare('UPDATE rooms SET failed_resets = ?, locked_until = ? WHERE id = ?').bind(failures >= 5 ? 0 : failures, locked, id).run();
           return json({ error: locked ? 'Muitas tentativas. Aguarde 15 minutos.' : 'Senha incorreta.' }, locked ? 429 : 403, cors);
         }
-        await env.DB.prepare('UPDATE rooms SET state = ?, checked = ?, revision = revision + 1, updated_at = ?, failed_resets = 0, locked_until = NULL WHERE id = ?').bind(JSON.stringify(EMPTY()), '{}', now(), id).run();
+        let caseData;
+        try { caseData = await generateCase(env); }
+        catch { return json({ error: 'A IA não conseguiu criar uma nova DRE agora. As respostas atuais foram preservadas; tente novamente.' }, 503, cors); }
+        await env.DB.prepare('UPDATE rooms SET state = ?, checked = ?, revision = revision + 1, updated_at = ?, failed_resets = 0, locked_until = NULL WHERE id = ?').bind(JSON.stringify(emptyRoomState(caseData)), '{}', now(), id).run();
         return json(parseRoom(await readRoom(env.DB, id)), 200, cors);
       }
       return json({ error: 'Método não permitido.' }, 405, cors);

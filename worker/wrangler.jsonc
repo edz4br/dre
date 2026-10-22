@@ -11,5 +11,6 @@
       "database_name": "simulado-dre",
       "database_id": "01e6dc49-e3be-4e1c-a7a7-05335f85484f"
     }
-  ]
+  ],
+  "ai": { "binding": "AI" }
 }

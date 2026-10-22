@@ -28,3 +28,7 @@ O arquivo `site/config.js` já aponta para o Worker público. Não coloque a sen
 ## Papel do controller
 
 Segundo os slides, cada gerente apura sua área e o controller faz o cálculo final, assina e entrega o relatório. No simulado, o controller recebe os valores pela DRE ao vivo e preenche cinco subtotais. Se uma apuração parecer incorreta, peça à pessoa responsável pela área que a confira. O site não envia o relatório ao professor.
+
+## Novas DREs com IA
+
+Ao confirmar o botão **Nova DRE** com a senha do controller, o Worker usa Cloudflare Workers AI para criar uma empresa fictícia, um contexto e novos valores. O servidor valida os dados, calcula a correção de forma determinística e grava o caso junto à sala no D1, para que todos vejam o mesmo exercício. Se a IA falhar ou produzir números incoerentes, a sala e as respostas atuais são preservadas. A integração usa o binding `AI` configurado em `worker/wrangler.jsonc`; os casos são gerados na versão online, não na demonstração local.

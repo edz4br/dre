@@ -51,17 +51,17 @@ export const normalizeMoney = input => {
   return Number.isFinite(value) ? Math.round(value * 100) : null;
 };
 export const formatMoney = cents => cents === null || cents === undefined ? '—' : (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-export function answers() {
-  const v = Object.fromEntries(Object.values(CASE).flat().map(field => [field.key, Math.round(field.value * 100)]));
+export function answers(caseData = CASE) {
+  const v = Object.fromEntries(Object.values(caseData).filter(Array.isArray).flat().map(field => [field.key, Math.round(field.value * 100)]));
   const gross = v.revenue - v.cost;
   const operating = gross + v.otherRevenue - v.sales - v.research - v.admin - v.goodwill - v.otherExpense;
   const beforeFinance = operating + v.equity + v.otherInvestment;
   const beforeTax = beforeFinance - v.interest - v.benefit;
   const final = beforeTax - v.tax + v.discontinued;
-  return { operational: Object.fromEntries(CASE.operational.map(f => [f.key, v[f.key]])), investment: Object.fromEntries(CASE.investment.map(f => [f.key, v[f.key]])), financing: Object.fromEntries(CASE.financing.map(f => [f.key, v[f.key]])), controller: { gross, operating, beforeFinance, beforeTax, final } };
+  return { operational: Object.fromEntries(caseData.operational.map(f => [f.key, v[f.key]])), investment: Object.fromEntries(caseData.investment.map(f => [f.key, v[f.key]])), financing: Object.fromEntries(caseData.financing.map(f => [f.key, v[f.key]])), controller: { gross, operating, beforeFinance, beforeTax, final } };
 }
-export function grade(role, fields) {
-  const expected = answers()[role];
+export function grade(role, fields, caseData = CASE) {
+  const expected = answers(caseData)[role];
   if (!expected) throw new Error('Área inválida');
   const result = Object.fromEntries(Object.keys(expected).map(key => [key, normalizeMoney(fields?.[key]) === expected[key]]));
   return { fields: result, correct: Object.values(result).every(Boolean), count: Object.values(result).filter(Boolean).length, total: Object.keys(result).length };
