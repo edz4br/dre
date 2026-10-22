@@ -11,10 +11,6 @@ function parseRoom(row) {
   return { fields: stored, caseData, checked: JSON.parse(row.checked), revision: row.revision, updatedAt: row.updated_at };
 }
 const emptyRoomState = (caseData = CASE) => ({ ...EMPTY(), __caseData: caseData });
-const caseSchema = {
-  type: 'object', additionalProperties: false, required: ['company', 'sector', 'context'],
-  properties: { company: { type: 'string' }, sector: { type: 'string' }, context: { type: 'string' } }
-};
 function money(value) { return Math.round(value * 100) / 100; }
 function makeValues(seed) {
   let state = seed || 1;
@@ -58,15 +54,17 @@ async function generateCase(env) {
     if (!env.AI) throw new Error('AI binding unavailable');
     const response = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
       messages: [
-        { role: 'system', content: 'Crie informacoes curtas e originais em portugues brasileiro para um caso didatico de DRE. Use uma empresa ficticia e nao inclua valores financeiros.' },
-        { role: 'user', content: 'Crie um nome de empresa ficticia, seu setor e um contexto de uma frase para um exercicio de demonstracao do resultado do exercicio. Seja diferente de casos comerciais genericos.' }
+        { role: 'system', content: 'Responda exclusivamente com um objeto JSON valido, sem markdown. Use exatamente as chaves company, sector e context, todas com texto curto em portugues brasileiro. Nao inclua valores financeiros.' },
+        { role: 'user', content: 'Crie informacoes originais para um caso didatico de DRE: nome de uma empresa totalmente ficticia, setor e uma frase de contexto. Evite nomes e historias genericas.' }
       ],
-      response_format: { type: 'json_schema', json_schema: caseSchema },
-      max_tokens: 180,
+      max_tokens: 220,
       temperature: 1.1,
       seed
     });
-    const payload = typeof response?.response === 'string' ? JSON.parse(response.response) : response?.response;
+    const output = typeof response?.response === 'string' ? response.response : JSON.stringify(response?.response ?? '');
+    const json = output.match(/\{[\s\S]*\}/)?.[0];
+    if (!json) throw new Error('AI did not return JSON');
+    const payload = JSON.parse(json);
     return makeCase(payload, seed);
   } catch {
     const fallback = [
