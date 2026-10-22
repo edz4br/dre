@@ -1,56 +1,68 @@
-import { CASE, ROLES, FIELDS, CONTROLLER_FIELDS, EMPTY, formatMoney, normalizeMoney, grade } from './core.js';
+import { CASE, ROLES, FIELDS, EMPTY, formatMoney, normalizeMoney, normalizeCaseData, grade } from './core.js';
 
 const api = String(window.DRE_API_URL || '').replace(/\/$/, '');
 const requestedRoom = new URLSearchParams(location.search).get('sala');
 const room = requestedRoom?.match(/^[A-Z0-9]{8,12}$/i)?.[0].toUpperCase() || makeRoom();
 const roleFromUrl = location.hash.slice(1);
-let active = ROLES.some(r => r.id === roleFromUrl) ? roleFromUrl : 'operational';
-let state = { fields: EMPTY(), caseData: CASE, checked: {}, updatedAt: null, revision: 0 };
+let active = ROLES.some(role => role.id === roleFromUrl) ? roleFromUrl : 'operational';
+let state = { fields: EMPTY(), caseData: normalizeCaseData(CASE), checked: {}, updatedAt: null, revision: 0 };
 let pending = new Set();
 let saving = Promise.resolve();
 let remoteError = false;
 const channel = !api && 'BroadcastChannel' in window ? new BroadcastChannel(`dre-${room}`) : null;
 const $ = id => document.getElementById(id);
-const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const show = (text) => { $('toast').textContent = text; $('toast').classList.add('show'); setTimeout(() => $('toast').classList.remove('show'), 2800); };
-function makeRoom() { const bytes = crypto.getRandomValues(new Uint8Array(8)); return Array.from(bytes, b => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[b % 32]).join('') + 'DRE'; }
+const esc = value => String(value ?? '').replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]));
+const show = message => { $('toast').textContent = message; $('toast').classList.add('show'); setTimeout(() => $('toast').classList.remove('show'), 2800); };
+function makeRoom() { const bytes = crypto.getRandomValues(new Uint8Array(8)); return Array.from(bytes, byte => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[byte % 32]).join('') + 'DRE'; }
 if (requestedRoom !== room) history.replaceState(null, '', `?sala=${room}${location.hash}`);
 $('room-code').textContent = room;
 
 const HELP = {
   operational: [
-    ['Dividam a aba', 'Os dois gerentes operacionais podem preencher juntos: um cuida das receitas e do custo dos produtos; o outro, das despesas da operação.'],
-    ['Encontrem o lucro bruto', 'Subtraiam o custo dos produtos vendidos da receita bruta. Neste caso, a venda é receita e o gasto para produzir ou adquirir o produto é custo.'],
-    ['Completem a operação', 'Somem outras receitas operacionais e subtraiam despesas de vendas, pesquisa, administração, perda de ágio e outras despesas. Quando o caso disser “não ocorreu”, preencham 0.'],
-    ['Confiram sua área', 'Informem os valores como números positivos. A estrutura da DRE já indica o que entra com sinal de menos. Depois, usem Corrigir minha parte.']
+    ['Dividam a apuração', 'Os dois gerentes compartilham esta aba. Um pode somar receitas e custos; o outro pode apurar as demais contas operacionais e revisar os subtotais.'],
+    ['Somem as receitas brutas', 'Juntem os valores de venda de mercadorias e de prestação de serviços. O campo pede o total das contas de origem, não um valor já apurado.'],
+    ['Somem os custos e calculem o lucro bruto', 'Juntem mercadorias vendidas, serviços prestados, materiais, mão de obra direta e fretes sobre compras. Depois subtraiam os custos das receitas brutas.'],
+    ['Apurem cada conta operacional', 'Somem as contas de outras receitas, vendas, pesquisa e desenvolvimento, despesas administrativas, perda por redução do ágio e outras despesas operacionais. Fretes sobre compras ficam nos custos; fretes sobre vendas ficam nas despesas de vendas.'],
+    ['Calculem o resultado operacional', 'Partam do lucro bruto, adicionem outras receitas operacionais e subtraiam as despesas operacionais. Digitem despesas como valores positivos; o sinal de subtração já aparece na DRE.']
   ],
   investment: [
-    ['Localizem investimentos', 'Procurem equivalência patrimonial e outras receitas ou despesas de investimentos nos dados do caso. Elas entram depois do resultado operacional.'],
-    ['Interpretem “não ocorreu”', 'Se a informação diz que não houve receita nem despesa de investimento, registrem 0 em cada campo. Não deixem em branco: o zero indica que vocês analisaram a linha.'],
-    ['Entreguem ao controller', 'O resultado da sua parte se soma ao operacional para formar o resultado antes de financiamento e tributos.']
+    ['Apurem a equivalência patrimonial', 'Somem os resultados informados para cada empresa coligada. Essa conta pertence à categoria de investimentos.'],
+    ['Apurem outras receitas e despesas de investimentos', 'Somem as receitas de investimento e subtraiam os valores marcados com (−), como a perda na remensuração. Registrem o resultado da soma.'],
+    ['Calculem o resultado antes do financiamento e tributos', 'Adicionem o resultado operacional às duas apurações de investimento. Esse subtotal fecha a parte do gerente de investimento.']
   ],
   financing: [
-    ['Separem juros e tributos', 'Juros de empréstimos e arrendamentos reduzem o resultado antes do imposto. Depois entram imposto de renda e contribuição social.'],
-    ['Preencham ausências', 'Juros de benefícios a empregados e operações descontinuadas que não ocorreram recebem 0.'],
-    ['N\u00e3o invertam o sinal', 'Digitem cada despesa como valor positivo. A DRE mostra o sinal de subtra\u00e7\u00e3o. O resultado de opera\u00e7\u00f5es descontinuadas pode aumentar ou reduzir o resultado; usem o valor informado nos dados do caso.'],
+    ['Somem os juros de financiamento', 'Juntem os juros de empréstimos e leasings. Em outro campo, juntem os juros das obrigações de benefícios aos empregados.'],
+    ['Calculem o resultado antes do imposto', 'Subtraiam os dois grupos de juros do resultado antes do financiamento e tributos.'],
+    ['Calculem IR e CSLL', 'Apliquem as duas alíquotas informadas no caso, separadamente, sobre o resultado antes do imposto de renda. Somem os dois tributos e registrem o total.'],
+    ['Confiram os sinais', 'Digitem juros e tributos como valores positivos. A DRE mostra essas linhas como deduções.']
   ],
   controller: [
-    ['Recebam as apurações', 'Veja a DRE ao vivo nesta página. Os gerentes apuram seus campos e você usa os valores que eles entregaram. No trabalho descrito nos slides, o controller faz o cálculo final e entrega o relatório.'],
-    ['Calculem em sequência', 'Receita menos custo = lucro bruto. Ajuste pelas receitas e despesas da operação, depois pelos investimentos, juros, tributos e operações descontinuadas.'],
-    ['Registrem os cinco resultados', 'Preencha cada subtotal na ordem mostrada. O site verifica sua conta quando você clicar em Corrigir minha parte. Se o valor de um gerente parecer estranho, avise a pessoa responsável pela área.'],
-    ['Assinem e entreguem', 'No exercício presencial, o controller assina o relatório final e o entrega ao professor. Este simulado não envia o trabalho.']
+    ['Feche a operação descontinuada', 'Some a receita da unidade encerrada e subtraia as despesas identificadas com (−). Registre o resultado líquido.'],
+    ['Feche o resultado do exercício', 'Use o resultado antes do imposto, subtraia IR e CSLL apurados pelo gerente de financiamento e adicione o resultado de operações descontinuadas.'],
+    ['Confira as apurações do grupo', 'A DRE ao vivo reúne as contas e os subtotais informados por cada gerente. O controller conclui o fechamento final sem alterar os cálculos de cada área.'],
+    ['Assine e entregue', 'No exercício presencial, o controller assina o relatório final e o entrega ao professor. Este simulado não envia o trabalho.']
   ]
 };
 
 function sanitizeServer(data) {
   const fields = EMPTY();
-  for (const role of ROLES) for (const f of FIELDS[role.id]) fields[role.id][f.key] = String(data?.fields?.[role.id]?.[f.key] ?? '').slice(0, 32);
-  const caseData = Object.fromEntries(['operational', 'investment', 'financing'].map(group => [group, CASE[group].map(field => ({ ...field, value: Number(data?.caseData?.[group]?.find(item => item.key === field.key)?.value ?? field.value) }))]));
-  caseData.metadata = data?.caseData?.metadata || null;
-  return { fields, caseData, checked: data?.checked || {}, updatedAt: data?.updatedAt || null, revision: Number(data?.revision) || 0 };
+  for (const role of ROLES) for (const field of FIELDS[role.id]) fields[role.id][field.key] = String(data?.fields?.[role.id]?.[field.key] ?? '').slice(0, 32);
+  return {
+    fields,
+    caseData: normalizeCaseData(data?.caseData || CASE),
+    checked: data?.checked || {},
+    updatedAt: data?.updatedAt || null,
+    revision: Number(data?.revision) || 0
+  };
 }
 function localKey() { return `dre-simulado:${room}`; }
-function persistLocal() { state.updatedAt = new Date().toISOString(); state.revision++; localStorage.setItem(localKey(), JSON.stringify(state)); channel?.postMessage(state); renderMeta(); renderTabs(); renderPreview(); }
+function persistLocal() {
+  state.updatedAt = new Date().toISOString();
+  state.revision++;
+  localStorage.setItem(localKey(), JSON.stringify(state));
+  channel?.postMessage(state);
+  renderMeta(); renderTabs(); renderPreview();
+}
 async function request(path, options = {}) {
   const response = await fetch(`${api}${path}`, { ...options, headers: { 'Content-Type': 'application/json', ...(options.headers || {}) } });
   const json = await response.json().catch(() => ({}));
@@ -60,7 +72,10 @@ async function request(path, options = {}) {
 function merge(data) {
   const incoming = sanitizeServer(data);
   if (incoming.revision < state.revision && !remoteError) return;
-  for (const key of pending) { const [role, field] = key.split('.'); incoming.fields[role][field] = state.fields[role][field]; }
+  for (const key of pending) {
+    const [role, field] = key.split('.');
+    incoming.fields[role][field] = state.fields[role][field];
+  }
   state = incoming;
   remoteError = false;
   renderAll();
@@ -72,25 +87,33 @@ async function refresh() {
 }
 function renderMeta() {
   $('updated-at').textContent = state.updatedAt ? new Date(state.updatedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : 'Aguardando';
-  $('progress').textContent = `${ROLES.filter(r => state.checked[r.id]?.correct).length} de 4 áreas`;
+  $('progress').textContent = `${ROLES.filter(role => state.checked[role.id]?.correct).length} de 4 áreas`;
   $('connection').textContent = api ? remoteError ? 'Servidor indisponível' : 'Sala sincronizada' : 'Demonstração local';
   $('connection').classList.toggle('offline', !api || remoteError);
 }
 function renderTabs() {
-  $('tabs').innerHTML = ROLES.map(r => `<button class="tab ${active === r.id ? 'active' : ''}" data-role="${r.id}" aria-current="${active === r.id ? 'page' : 'false'}"><span class="tab-num">${r.number}</span><span><strong>${r.name}</strong><small>${r.people}</small></span>${state.checked[r.id]?.correct ? '<span class="check">✓</span>' : ''}</button>`).join('');
+  $('tabs').innerHTML = ROLES.map(role => `<button class="tab ${active === role.id ? 'active' : ''}" data-role="${role.id}" aria-current="${active === role.id ? 'page' : 'false'}"><span class="tab-num">${role.number}</span><span><strong>${role.name}</strong><small>${role.people}</small></span>${state.checked[role.id]?.correct ? '<span class="check">✓</span>' : ''}</button>`).join('');
 }
 function renderFields(role) {
   const groups = role === 'operational' ? ['Receitas e custos', 'Despesas e resultado operacional'] : [null];
-  return groups.map(group => `${group ? `<h3 class="section-title">${group}</h3>` : ''}${FIELDS[role].filter(f => !group || f.group === group).map(f => {
-    const checked = state.checked[role]?.fields?.[f.key];
-    return `<div class="field-row ${checked === true ? 'good' : checked === false ? 'bad' : ''}"><div><label for="f-${f.key}">${esc(f.label)}</label>${f.formula ? `<small>${esc(f.formula)}</small>` : ''}${checked === false ? '<div class="feedback bad">Confira este valor</div>' : checked === true ? '<div class="feedback good">Correto</div>' : ''}</div><div class="field-input"><span>R$</span><input id="f-${f.key}" data-field="${f.key}" inputmode="decimal" autocomplete="off" placeholder="0,00" value="${esc(state.fields[role][f.key])}" aria-label="${esc(f.label)} em reais"></div></div>`;
+  const rates = state.caseData.taxRates;
+  return groups.map(group => `${group ? `<h3 class="section-title">${group}</h3>` : ''}${FIELDS[role].filter(field => !group || field.group === group).map(field => {
+    const checked = state.checked[role]?.fields?.[field.key];
+    const formula = field.key === 'tax' ? `Calcule IRPJ (${rates.ir}%) + CSLL (${rates.csll}%) separadamente sobre o resultado antes do imposto.` : field.formula;
+    return `<div class="field-row ${field.kind === 'subtotal' ? 'calculated-field' : ''} ${checked === true ? 'good' : checked === false ? 'bad' : ''}"><div><label for="f-${field.key}">${esc(field.label)}</label>${formula ? `<small>${esc(formula)}</small>` : ''}${checked === false ? '<div class="feedback bad">Confira este valor</div>' : checked === true ? '<div class="feedback good">Correto</div>' : ''}</div><div class="field-input"><span>R$</span><input id="f-${field.key}" data-field="${field.key}" inputmode="decimal" autocomplete="off" placeholder="Total apurado" value="${esc(state.fields[role][field.key])}" aria-label="${esc(field.label)} em reais"></div></div>`;
   }).join('')}`).join('');
 }
 function renderRole() {
-  const info = ROLES.find(r => r.id === active);
-  const subtitles = { operational: 'Os dois gerentes operacionais dividem a apuração das receitas, custos e despesas.', investment: 'Apure os resultados de participações e outras movimentações de investimentos.', financing: 'Apure juros, tributos e eventuais operações descontinuadas.', controller: 'Use as apurações dos gerentes para calcular e registrar os resultados finais.' };
+  const info = ROLES.find(role => role.id === active);
+  const subtitles = {
+    operational: 'Os dois gerentes compartilham esta aba e apuram as contas até o resultado operacional.',
+    investment: 'Apure as contas de investimento e o resultado antes do financiamento e tributos.',
+    financing: 'Apure as contas de financiamento, o resultado antes do imposto e IR e CSLL.',
+    controller: 'Confira as apurações do grupo e faça o fechamento final da DRE.'
+  };
   const result = state.checked[active];
-  $('role-content').innerHTML = `<div class="role-heading"><div><p class="eyebrow">ÁREA ${info.number} · ${info.people.toUpperCase()}</p><h2>${info.name}</h2><p>${subtitles[active]}</p></div><button class="help-button" id="help">ajuda?</button></div>${renderFields(active)}<div class="role-footer"><p>Preencha todos os campos. Use 0 quando o fato não ocorreu.</p><button class="primary" id="correct">Corrigir minha parte</button></div>${result ? `<div class="result ${result.correct ? 'success' : 'partial'}" role="status"><strong>${result.correct ? 'Tudo certo nesta área!' : `${result.count} de ${result.total} campos corretos`}</strong>${result.correct ? 'Sua apuração foi conferida. O grupo já pode usar estes valores no fechamento.' : 'Revise os campos destacados e tente novamente. A ajuda explica a ordem do cálculo.'}</div>` : ''}`;
+  const footerPrompt = active === 'controller' ? 'Feche o resultado final depois das apurações dos gerentes.' : 'Some as contas de origem, calcule os subtotais da sua área e registre os valores.';
+  $('role-content').innerHTML = `<div class="role-heading"><div><p class="eyebrow">ÁREA ${info.number} · ${info.people.toUpperCase()}</p><h2>${info.name}</h2><p>${subtitles[active]}</p></div><button class="help-button" id="help">ajuda?</button></div>${renderFields(active)}<div class="role-footer"><p>${footerPrompt}</p><button class="primary" id="correct">Corrigir minha parte</button></div>${result ? `<div class="result ${result.correct ? 'success' : 'partial'}" role="status"><strong>${result.correct ? 'Tudo certo nesta área!' : `${result.count} de ${result.total} campos corretos`}</strong>${result.correct ? 'Sua apuração foi conferida. O grupo já pode seguir com a DRE.' : 'Revise os campos destacados e tente novamente. A ajuda explica a ordem do cálculo.'}</div>` : ''}`;
   $('help').onclick = openHelp;
   $('correct').onclick = correct;
   $('role-content').querySelectorAll('[data-field]').forEach(input => {
@@ -104,10 +127,21 @@ function renderRole() {
   });
 }
 function renderFacts() {
-  const parts = [['Operacional', state.caseData.operational], ['Investimento', state.caseData.investment], ['Financiamento e tributos', state.caseData.financing]];
+  const parts = [['operational', 'Operacional'], ['investment', 'Investimento'], ['financing', 'Financiamento'], ['controller', 'Fechamento do controller']];
   const metadata = state.caseData.metadata;
-  $('case-context').innerHTML = metadata ? `<div class="case-context"><strong>${esc(metadata.company)} · ${esc(metadata.sector)}</strong><p>${esc(metadata.context)}</p><small>${metadata.source === 'IA' ? 'Caso criado por IA' : 'Caso criado automaticamente'} · ${new Date(metadata.generatedAt).toLocaleString('pt-BR')}</small></div>` : '';
-  $('case-facts').innerHTML = parts.map(([title, fields]) => `<div class="fact-group"><h3>${title}</h3>${fields.map(f => `<div class="fact"><span>${esc(f.label)}</span><strong class="${f.value === 0 ? 'zero' : ''}">${formatMoney(Math.round(f.value * 100))}</strong></div>`).join('')}</div>`).join('');
+  const generatedAt = metadata?.generatedAt ? ` · ${new Date(metadata.generatedAt).toLocaleString('pt-BR')}` : '';
+  $('case-context').innerHTML = metadata ? `<div class="case-context"><strong>${esc(metadata.company)} · ${esc(metadata.sector)}</strong><p>${esc(metadata.context)}</p><small>${metadata.source === 'IA' ? 'Contexto criado por IA' : 'Caso criado automaticamente'}${generatedAt}</small></div>` : '';
+  $('case-facts').innerHTML = parts.map(([role, title]) => {
+    const groups = Object.entries(state.caseData.sources?.[role] || {});
+    const facts = groups.map(([key, items]) => {
+      const field = FIELDS[role].find(candidate => candidate.key === key);
+      if (!field || !items.length) return '';
+      return `<div class="source-set"><strong>${esc(field.label)}</strong>${items.map(entry => `<div class="fact"><span>${entry.effect === 'subtract' ? '(−) ' : '(+) '}${esc(entry.label)}</span><strong>${formatMoney(Math.round(entry.value * 100))}</strong></div>`).join('')}</div>`;
+    }).join('');
+    const taxNote = role === 'financing' ? `<div class="source-note"><strong>Alíquotas do caso</strong><p>Base: resultado antes do imposto de renda. Calcule IRPJ (${state.caseData.taxRates.ir}%) e CSLL (${state.caseData.taxRates.csll}%) separadamente e some os dois valores.</p></div>` : '';
+    const accountCount = groups.reduce((total, [, items]) => total + items.length, 0) + (role === 'financing' ? 2 : 0);
+    return `<details class="fact-group" ${active === role ? 'open' : ''}><summary>${title}<span>${accountCount} contas de origem</span></summary>${facts}${taxNote}</details>`;
+  }).join('');
 }
 function renderPreview() {
   const rows = [];
@@ -115,18 +149,26 @@ function renderPreview() {
     const value = normalizeMoney(state.fields[role][key]);
     rows.push(`<div class="dre-row ${subtotal ? 'subtotal' : ''} ${final ? 'final' : ''}"><span>${esc(label)}</span><strong>${formatMoney(value)}</strong></div>`);
   };
-  for (const f of state.caseData.operational.slice(0,2)) add(`${f.kind === 'minus' ? '(-)' : '(+)'} ${f.label}`, 'operational', f.key);
-  add('= Lucro bruto', 'controller', 'gross', true);
-  for (const f of state.caseData.operational.slice(2)) add(`${f.kind === 'minus' ? '(-)' : '(+)'} ${f.label}`, 'operational', f.key);
-  add('= Resultado operacional', 'controller', 'operating', true);
-  for (const f of state.caseData.investment) add(`(+) ${f.label}`, 'investment', f.key);
-  add('= Antes do financiamento e tributos', 'controller', 'beforeFinance', true);
-  for (const f of state.caseData.financing.slice(0,2)) add(`(-) ${f.label}`, 'financing', f.key);
-  add('= Antes do imposto', 'controller', 'beforeTax', true);
-  add('(−) Imposto de renda e contribuição social', 'financing', 'tax');
-  add('(+) Operações descontinuadas', 'financing', 'discontinued');
-  add('= RESULTADO DO EXERCÍCIO', 'controller', 'final', true, true);
-  $('dre-preview').innerHTML = rows.join('') + '<p class="live-note">Os valores exibidos são as respostas do grupo. Os subtotais são preenchidos pelo controller.</p>';
+  add('Receitas brutas', 'operational', 'revenue');
+  add('(-) Custos dos produtos e serviços vendidos', 'operational', 'cost');
+  add('= Lucro bruto', 'operational', 'gross', true);
+  add('(+) Outras receitas operacionais', 'operational', 'otherRevenue');
+  add('(-) Despesas de vendas', 'operational', 'sales');
+  add('(-) Despesas de pesquisa e desenvolvimento', 'operational', 'research');
+  add('(-) Despesas gerais e administrativas', 'operational', 'admin');
+  add('(+/-) Perda por redução ao valor recuperável do ágio', 'operational', 'goodwill');
+  add('(-) Outras despesas operacionais', 'operational', 'otherExpense');
+  add('= Resultado operacional', 'operational', 'operating', true);
+  add('Resultado de equivalência patrimonial', 'investment', 'equity');
+  add('(+) Outras receitas e despesas de investimentos', 'investment', 'otherInvestment');
+  add('= Resultado antes do financiamento e tributos', 'investment', 'beforeFinance', true);
+  add('(-) Despesas de juros com empréstimos e leasings', 'financing', 'interest');
+  add('(-) Despesas de juros com benefícios a empregados', 'financing', 'benefit');
+  add('= Resultado antes do imposto de renda', 'financing', 'beforeTax', true);
+  add('(-) Imposto de renda e contribuição social', 'financing', 'tax');
+  add('(+) Resultado de operações descontinuadas', 'controller', 'discontinued');
+  add('= Resultado do exercício', 'controller', 'final', true, true);
+  $('dre-preview').innerHTML = rows.join('') + '<p class="live-note">As contas detalhadas ficam ao lado. Cada valor aparece quando a área responsável faz sua apuração.</p>';
 }
 function renderAll() {
   const focused = document.activeElement?.dataset?.field;
@@ -160,25 +202,49 @@ async function correct() {
       const response = await request(`/api/rooms/${room}/check`, { method: 'POST', body: JSON.stringify({ role }) });
       state.checked[role] = response.result;
       merge(response.room);
-    } else { state.checked[role] = grade(role, state.fields[role], state.caseData); persistLocal(); renderRole(); }
+    } else {
+      state.checked[role] = grade(role, state.fields[role], state.caseData, state.fields);
+      persistLocal(); renderRole();
+    }
   } catch (error) { show(`Não foi possível corrigir: ${error.message}`); button.disabled = false; }
 }
 function openHelp() {
-  $('help-title').textContent = `Como fazer: ${ROLES.find(r => r.id === active).name}`;
+  $('help-title').textContent = `Como fazer: ${ROLES.find(role => role.id === active).name}`;
   $('help-body').innerHTML = HELP[active].map(([title, body], index) => `<div class="help-step"><strong>${index + 1}. ${esc(title)}</strong><p>${esc(body)}</p></div>`).join('');
   $('help-dialog').showModal();
 }
 async function reset(password) {
-  if (api) { const data = await request(`/api/rooms/${room}/reset`, { method: 'POST', body: JSON.stringify({ password }) }); pending.clear(); merge(data); }
-  else { if (password !== 'treino') throw new Error('Senha incorreta. Na demonstração local, use “treino”.'); state = { fields: EMPTY(), caseData: CASE, checked: {}, updatedAt: null, revision: state.revision }; pending.clear(); persistLocal(); renderAll(); }
+  if (api) {
+    const data = await request(`/api/rooms/${room}/reset`, { method: 'POST', body: JSON.stringify({ password }) });
+    pending.clear(); merge(data);
+  } else {
+    throw new Error('O servidor precisa estar conectado para gerar outra DRE com segurança.');
+  }
 }
-$('tabs').addEventListener('click', event => { const button = event.target.closest('[data-role]'); if (!button) return; active = button.dataset.role; location.hash = active; renderTabs(); renderRole(); });
-$('share').onclick = async () => { try { await navigator.clipboard.writeText(location.href); show('Link da sala copiado.'); } catch { show(`Código da sala: ${room}`); } };
+
+$('tabs').addEventListener('click', event => {
+  const button = event.target.closest('[data-role]');
+  if (!button) return;
+  active = button.dataset.role;
+  location.hash = active;
+  renderTabs(); renderRole(); renderFacts();
+});
+$('share').onclick = async () => {
+  try { await navigator.clipboard.writeText(location.href); show('Link da sala copiado.'); }
+  catch { show(`Código da sala: ${room}`); }
+};
 $('reset').onclick = () => { $('reset-error').textContent = ''; $('reset-password').value = ''; $('reset-demo').hidden = !!api; $('reset-dialog').showModal(); };
-$('reset-form').onsubmit = async event => { event.preventDefault(); const button = $('reset-form').querySelector('[type=submit]'); button.disabled = true; button.textContent = 'Gerando nova DRE…'; try { await reset($('reset-password').value); $('reset-dialog').close(); show('Nova DRE criada para o grupo.'); } catch (error) { $('reset-error').textContent = error.message; } finally { button.disabled = false; button.textContent = 'Gerar nova DRE'; } };
+$('reset-form').onsubmit = async event => {
+  event.preventDefault();
+  const button = $('reset-form').querySelector('[type=submit]');
+  button.disabled = true; button.textContent = 'Gerando nova DRE…';
+  try { await reset($('reset-password').value); $('reset-dialog').close(); show('Nova DRE criada para o grupo.'); }
+  catch (error) { $('reset-error').textContent = error.message; }
+  finally { button.disabled = false; button.textContent = 'Gerar nova DRE'; }
+};
 $('close-help').onclick = $('help-ok').onclick = () => $('help-dialog').close();
 $('close-reset').onclick = $('cancel-reset').onclick = () => $('reset-dialog').close();
 channel?.addEventListener('message', event => { if (event.data?.revision > state.revision) merge(event.data); });
 renderFacts();
-if (api) { await refresh(); setInterval(refresh, 2500); }
+if (api) { renderAll(); await refresh(); setInterval(refresh, 2500); }
 else { try { const saved = JSON.parse(localStorage.getItem(localKey())); if (saved) state = sanitizeServer(saved); } catch {} renderAll(); }

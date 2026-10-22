@@ -1,36 +1,33 @@
-# Simulado DRE em grupo
+# Simulado DRE — Fundamentos da Contabilidade
 
-Site de treino para o trabalho de Fundamentos da Contabilidade, com os valores da apresentação da aula 11 (14/10/2026). Há quatro abas: operacional (compartilhada pelos dois gerentes), investimento, financiamento e controller. Cada área tem ajuda contextual e correção. A DRE acompanha as respostas em tempo real e o reinício da sala exige a senha do controller.
+Aplicação colaborativa para treinar a DRE apresentada nas Aulas 10, 11 e 12 e no plano de contas de resultado. Cada pessoa recebe contas de origem e precisa somá-las para apurar os valores da sua área. Os subtotais não são entregues prontos.
 
-## Estrutura
+## Áreas do grupo
 
-- `site/`: página publicada no GitHub Pages.
-- `worker/`: API do Cloudflare Workers, configuração do D1 e esquema da tabela. A senha existe apenas como segredo do servidor.
-- `.github/workflows/pages.yml`: publica automaticamente a pasta `site/` no GitHub Pages.
-- `tests/`: testes dos cálculos, da correção e da API.
+- **Operacional — dois gerentes na mesma aba:** somam receitas brutas, custos, lucro bruto, contas operacionais e resultado operacional.
+- **Investimento:** apura equivalência patrimonial, outras receitas e despesas de investimentos e o resultado antes do financiamento e tributos.
+- **Financiamento:** apura juros de empréstimos, leasings e benefícios a empregados; calcula o resultado antes do imposto; apura IR e CSLL com as alíquotas indicadas no caso.
+- **Controller:** soma o resultado de operações descontinuadas e fecha o resultado do exercício com os valores informados pelos gerentes, sem alterar as apurações deles.
 
-O GitHub Pages hospeda os arquivos estáticos. O Worker recebe e corrige as respostas; o D1 guarda os dados de cada sala. A interface consulta o servidor a cada 2,5 segundos. O código aleatório da URL identifica a sala; qualquer pessoa com o link pode alterar as respostas.
+## Ordem da DRE
 
-## Prévia local
+O painel segue o modelo usado nas aulas: receitas brutas; custos dos produtos e serviços vendidos; lucro bruto; outras receitas operacionais; despesas de vendas; pesquisa e desenvolvimento; despesas gerais e administrativas; perda por redução ao valor recuperável do ágio; outras despesas operacionais; resultado operacional; equivalência patrimonial; outras receitas e despesas de investimentos; resultado antes do financiamento e tributos; juros de empréstimos, leasings e benefícios a empregados; resultado antes do imposto de renda; IR e CSLL; operações descontinuadas; resultado do exercício.
 
-Na raiz do projeto, execute `node --test` e `node dev-server.js`; abra `http://127.0.0.1:4173`. O modo de demonstração local usa o armazenamento do navegador e não sincroniza aparelhos diferentes.
+Cada caso mostra todas as contas de origem com valores positivos. Valores com sinal `(-)` devem ser subtraídos. Nenhuma categoria fica marcada como “não ocorreu” ou com valor zero. Os casos novos variam os valores; as alíquotas usam os exemplos das aulas: IR de 15% e CSLL de 9%, ou IR de 11% e CSLL de 8%.
 
-## Publicação
+## Caso novo e sincronização
 
-1. O GitHub Actions publica `site/` a cada envio para `main`. Em **Settings → Pages → Build and deployment**, selecione **GitHub Actions**.
-2. A API usa o Worker `simulado-dre-api` e o banco D1 `simulado-dre`. `worker/wrangler.jsonc` aponta para esse banco e restringe chamadas à origem deste GitHub Pages.
-3. Cloudflare Workers Builds ja esta conectado ao repositorio `edz4br/dre` na branch `main`, com raiz `.` e comando `npx wrangler deploy --config worker/wrangler.jsonc`. Cada envio para `main` dispara uma implantacao.
-4. Em **Settings → Variables and secrets**, adicione `RESET_PASSWORD` como secret do Worker.
-5. Depois da implantação, abra uma sala e confirme que a faixa superior indica **Sala sincronizada**. Preencha um campo e abra a mesma sala em outro aparelho para testar a atualização.
+O botão **Nova DRE** pede a senha de controle, gera um caso novo e limpa respostas e correções da sala toda. A IA cria o perfil fictício da empresa e seu contexto; uma geração com regras financeiras cria os valores de origem e mantém os cálculos coerentes. Se a IA estiver indisponível, o sistema usa um contexto de reserva e ainda gera valores novos. A senha fica guardada como segredo do Worker e não é publicada no código do site.
 
-O arquivo `site/config.js` já aponta para o Worker público. Não coloque a senha nem chaves de acesso no repositório.
+O site usa GitHub Pages na pasta `site/`. A API em `worker/` sincroniza as salas em tempo real usando Cloudflare D1. A variável `RESET_PASSWORD` fica configurada como segredo do Worker; `ALLOWED_ORIGIN` restringe a API ao domínio do site.
 
-## Papel do controller
+## Desenvolvimento e validação
 
-Segundo os slides, cada gerente apura sua área e o controller faz o cálculo final, assina e entrega o relatório. No simulado, o controller recebe os valores pela DRE ao vivo e preenche cinco subtotais. Se uma apuração parecer incorreta, peça à pessoa responsável pela área que a confira. O site não envia o relatório ao professor.
+```sh
+node --test
+node dev-server.js
+```
 
-## Novas DREs com IA
+Os testes verificam a ordem da DRE, os totais calculados a partir das contas, a geração de casos positivos, a correção por área, a sincronização e a senha de reset.
 
-Ao confirmar o botão **Nova DRE** com a senha do controller, o Worker usa Cloudflare Workers AI para criar uma empresa fictícia, um contexto e novos valores. O servidor valida os dados, calcula a correção de forma determinística e grava o caso junto à sala no D1, para que todos vejam o mesmo exercício. Se a IA falhar ou produzir números incoerentes, a sala e as respostas atuais são preservadas. A integração usa o binding `AI` configurado em `worker/wrangler.jsonc`; os casos são gerados na versão online, não na demonstração local.
-
-Os dados de cada exercício são calculados pelo Worker dentro de faixas plausíveis, para garantir que os subtotais fechem. A IA cria o nome, o setor e o contexto da empresa; se o serviço estiver indisponível, o site usa um cenário reserva e ainda gera novos números.
+O arquivo `wrangler.jsonc` na raiz é usado pelas prévias do Cloudflare Workers Builds com o comando padrão `npx wrangler preview`; ele aponta para o D1 de teste `simulado-dre-preview`, inclusive no bloco `previews`. Em **Previews Base**, mantenha a raiz como `/` e o vínculo D1 como `simulado-dre-preview`. A produção usa `npx wrangler deploy --config worker/wrangler.jsonc` e o banco `simulado-dre`. Quando `worker/schema.sql` mudar, aplique o mesmo esquema também ao banco de prévia.

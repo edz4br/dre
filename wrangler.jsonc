@@ -1,0 +1,30 @@
+{
+  "$schema": "https://developers.cloudflare.com/workers/wrangler-schema.json",
+  "name": "simulado-dre-api",
+  "main": "worker/index.js",
+  "compatibility_date": "2026-10-22",
+  "vars": {
+    "ALLOWED_ORIGIN": "https://edz4br.github.io"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "simulado-dre-preview",
+      "database_id": "321dad5f-a35d-48bf-af18-28edce2da447"
+    }
+  ],
+  "ai": { "binding": "AI" },
+  "previews": {
+    "vars": {
+      "ALLOWED_ORIGIN": "https://edz4br.github.io"
+    },
+    "d1_databases": [
+      {
+        "binding": "DB",
+        "database_name": "simulado-dre-preview",
+        "database_id": "321dad5f-a35d-48bf-af18-28edce2da447"
+      }
+    ],
+    "ai": { "binding": "AI" }
+  }
+}
