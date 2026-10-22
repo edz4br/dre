@@ -19,7 +19,7 @@ Na raiz do projeto, execute `node --test` e `node dev-server.js`; abra `http://1
 
 1. O GitHub Actions publica `site/` a cada envio para `main`. Em **Settings → Pages → Build and deployment**, selecione **GitHub Actions**.
 2. A API usa o Worker `simulado-dre-api` e o banco D1 `simulado-dre`. `worker/wrangler.jsonc` aponta para esse banco e restringe chamadas à origem deste GitHub Pages.
-3. Em **Workers & Pages → simulado-dre-api → Settings → Builds**, conecte `edz4br/dre` à ramificação `main`. Deixe a raiz do projeto como `.` e use `npx wrangler deploy --config worker/wrangler.jsonc` como comando de implantação.
+3. Cloudflare Workers Builds ja esta conectado ao repositorio `edz4br/dre` na branch `main`, com raiz `.` e comando `npx wrangler deploy --config worker/wrangler.jsonc`. Cada envio para `main` dispara uma implantacao.
 4. Em **Settings → Variables and secrets**, adicione `RESET_PASSWORD` como secret do Worker.
 5. Depois da implantação, abra uma sala e confirme que a faixa superior indica **Sala sincronizada**. Preencha um campo e abra a mesma sala em outro aparelho para testar a atualização.
 
