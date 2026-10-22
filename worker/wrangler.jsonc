@@ -1,0 +1,15 @@
+{
+  "name": "simulado-dre-api",
+  "main": "index.js",
+  "compatibility_date": "2026-10-22",
+  "vars": {
+    "ALLOWED_ORIGIN": "https://edz4br.github.io"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "simulado-dre",
+      "database_id": "01e6dc49-e3be-4e1c-a7a7-05335f85484f"
+    }
+  ]
+}
