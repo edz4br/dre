@@ -30,4 +30,4 @@ node dev-server.js
 
 Os testes verificam a ordem da DRE, os totais calculados a partir das contas, a geração de casos positivos, a correção por área, a sincronização e a senha de reset.
 
-As prévias de pull request do Worker usam `worker/wrangler.jsonc` e o banco D1 separado `simulado-dre-preview`. Se o schema mudar, aplique `worker/schema.sql` também ao banco de preview antes de testá-lo. No Cloudflare Workers Builds, a raiz de Previews Base fica em `/worker`; a raiz e o comando de produção permanecem independentes.
+As prévias de pull request usam `npx wrangler preview --config worker/wrangler.jsonc` e o vínculo **Previews Base → simulado-dre-preview**. A produção continua vinculada ao banco `simulado-dre` e usa `npx wrangler deploy --config worker/wrangler.jsonc`. Mantenha o banco de prévia separado do banco de produção; quando `worker/schema.sql` mudar, aplique o mesmo esquema também ao banco de prévia.
