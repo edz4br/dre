@@ -16,24 +16,24 @@ function makeValues(seed) {
   let state = seed || 1;
   const random = () => { state = (Math.imul(state, 1664525) + 1013904223) >>> 0; return state / 4294967296; };
   const ratio = (base, min, max) => money(base * (min + random() * (max - min)));
-  const optionalRatio = (base, chance, min, max) => random() < chance ? ratio(base, min, max) : 0;
+  const positiveRatio = (base, chance, min, max) => ratio(base, min, max);
   const revenue = money(150_000 + random() * 4_850_000);
   const cost = ratio(revenue, 0.42, 0.70);
-  const otherRevenue = optionalRatio(revenue, 0.45, 0.004, 0.025);
+  const otherRevenue = positiveRatio(revenue, 0.45, 0.004, 0.025);
   const sales = ratio(revenue, 0.025, 0.055);
-  const research = optionalRatio(revenue, 0.4, 0.004, 0.018);
+  const research = positiveRatio(revenue, 0.4, 0.004, 0.018);
   const admin = ratio(revenue, 0.035, 0.085);
-  const goodwill = optionalRatio(revenue, 0.12, 0.002, 0.01);
+  const goodwill = positiveRatio(revenue, 0.12, 0.002, 0.01);
   const otherExpense = ratio(revenue, 0.004, 0.018);
   const operating = revenue - cost + otherRevenue - sales - research - admin - goodwill - otherExpense;
-  const equity = optionalRatio(operating, 0.3, 0.01, 0.07);
-  const otherInvestment = optionalRatio(operating, 0.35, 0.005, 0.04);
+  const equity = positiveRatio(operating, 0.3, 0.01, 0.07);
+  const otherInvestment = positiveRatio(operating, 0.35, 0.005, 0.04);
   const beforeFinance = operating + equity + otherInvestment;
   const interest = ratio(beforeFinance, 0.025, 0.11);
-  const benefit = optionalRatio(beforeFinance, 0.2, 0.003, 0.02);
+  const benefit = positiveRatio(beforeFinance, 0.2, 0.003, 0.02);
   const beforeTax = beforeFinance - interest - benefit;
   const tax = ratio(beforeTax, 0.12, 0.32);
-  const discontinued = optionalRatio(beforeTax, 0.12, 0.005, 0.025);
+  const discontinued = positiveRatio(beforeTax, 0.12, 0.005, 0.025);
   return { revenue, cost, otherRevenue, sales, research, admin, goodwill, otherExpense, equity, otherInvestment, interest, benefit, tax, discontinued };
 }
 function makeCase(payload, seed, source = 'IA') {
