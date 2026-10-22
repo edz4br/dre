@@ -16,19 +16,19 @@ test('API grava uma área, corrige e só reinicia com a senha do servidor', asyn
     const response = await worker.fetch(new Request(base + suffix, { method, headers: { Origin: env.ALLOWED_ORIGIN, ...(data ? { 'Content-Type': 'application/json' } : {}) }, ...(data ? { body: JSON.stringify(data) } : {}) }), env);
     return { status: response.status, data: await response.json() };
   };
-  assert.equal((await call()).data.fields.investment.equity, '');
-  await call('/fields', 'PATCH', { role: 'investment', field: 'equity', value: '0' });
-  await call('/fields', 'PATCH', { role: 'investment', field: 'otherInvestment', value: '0' });
+  const initial = (await call()).data; assert.equal(initial.fields.investment.equity, ''); assert.ok([...initial.caseData.operational, ...initial.caseData.investment, ...initial.caseData.financing].every(field => field.value > 0));
+  await call('/fields', 'PATCH', { role: 'investment', field: 'equity', value: String(initial.caseData.investment.find(field => field.key === 'equity').value) });
+  await call('/fields', 'PATCH', { role: 'investment', field: 'otherInvestment', value: String(initial.caseData.investment.find(field => field.key === 'otherInvestment').value) });
   assert.equal((await call('/check', 'POST', { role: 'investment' })).data.result.correct, true);
   assert.equal((await call()).data.checked.investment.correct, true);
   assert.equal((await call('/reset', 'POST', { password: 'errada' })).status, 403);
-  assert.equal((await call()).data.fields.investment.equity, '0');
+  assert.equal((await call()).data.fields.investment.equity, String(initial.caseData.investment.find(field => field.key === 'equity').value));
   assert.equal((await call('/reset', 'POST', { password: env.RESET_PASSWORD })).status, 200);
   const room = (await call()).data;
   assert.equal(room.fields.investment.equity, '');
   assert.ok(room.caseData.operational.find(field => field.key === 'revenue').value > 100_000);
   assert.equal(room.caseData.metadata.company, 'Mercado Azul');
-  assert.equal(room.caseData.metadata.source, 'IA');
+  assert.equal(room.caseData.metadata.source, 'IA'); assert.ok([...room.caseData.operational, ...room.caseData.investment, ...room.caseData.financing].every(field => field.value > 0));
   for (const field of room.caseData.operational) {
     await call('/fields', 'PATCH', { role: 'operational', field: field.key, value: String(field.value) });
   }
@@ -38,6 +38,6 @@ test('API grava uma área, corrige e só reinicia com a senha do servidor', asyn
   assert.equal((await call('/reset', 'POST', { password: env.RESET_PASSWORD })).status, 200);
   const fallback = (await call()).data;
   assert.equal(fallback.fields.operational.revenue, '');
-  assert.equal(fallback.caseData.metadata.source, 'automatico');
+  assert.equal(fallback.caseData.metadata.source, 'automatico'); assert.ok([...fallback.caseData.operational, ...fallback.caseData.investment, ...fallback.caseData.financing].every(field => field.value > 0));
   sqlite.close();
 });
