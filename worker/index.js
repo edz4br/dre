@@ -120,7 +120,7 @@ export default {
         }
         let caseData;
         try { caseData = await generateCase(env); }
-        catch { return json({ error: 'A IA não conseguiu criar uma nova DRE agora. As respostas atuais foram preservadas; tente novamente.' }, 503, cors); }
+        catch (error) { const diagnostic = url.searchParams.get('debug') === '1' ? String(error?.message || error).slice(0, 240) : undefined; return json({ error: 'A IA não conseguiu criar uma nova DRE agora. As respostas atuais foram preservadas; tente novamente.', ...(diagnostic ? { diagnostic } : {}) }, 503, cors); }
         await env.DB.prepare('UPDATE rooms SET state = ?, checked = ?, revision = revision + 1, updated_at = ?, failed_resets = 0, locked_until = NULL WHERE id = ?').bind(JSON.stringify(emptyRoomState(caseData)), '{}', now(), id).run();
         return json(parseRoom(await readRoom(env.DB, id)), 200, cors);
       }
