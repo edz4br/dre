@@ -5,33 +5,33 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#101b2d">
   <meta name="description" content="Simulado colaborativo de Demonstração do Resultado do Exercício para o trabalho de Fundamentos da Contabilidade.">
-  <title>Simulado DRE · Fundamentos da Contabilidade</title>
+  <title>Simulado DRE — Fundamentos da Contabilidade</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <header class="topbar">
-    <a class="brand" href="#" aria-label="Simulado DRE, início"><span class="brandmark">∑</span><span>Simulado <strong>DRE</strong></span></a>
+    <a class="brand" href="#" aria-label="Simulado DRE, início"><span class="brandmark">S</span><span>Simulado <strong>DRE</strong></span></a>
     <div class="top-actions"><span id="connection" class="connection">Conectando…</span><button id="share" class="ghost">Compartilhar sala</button><button id="reset" class="ghost danger">Nova DRE</button></div>
   </header>
   <main class="shell">
     <section class="intro">
-      <div><p class="eyebrow">FUNDAMENTOS DA CONTABILIDADE · TREINO EM GRUPO</p><h1>Uma DRE. Cada pessoa faz sua parte.</h1><p class="lede">Leia os dados do caso, preencha sua área e confira a correção. O controller fecha os resultados com os valores enviados pelos gerentes.</p></div>
+      <div><p class="eyebrow">FUNDAMENTOS DA CONTABILIDADE · TREINO EM GRUPO</p><h1>Uma DRE. Cada pessoa faz sua parte.</h1><p class="lede">Apure os totais a partir das contas de origem, confira sua área e acompanhe o controller fechar os resultados em tempo real.</p></div>
       <div class="case-badge"><span>CASO DINÂMICO</span><strong>IA</strong><small>Valores em reais · exercício didático</small></div>
     </section>
-    <section class="room-strip" aria-label="Sala do grupo"><div><span class="muted">Sala do grupo</span><strong id="room-code">—</strong></div><div><span class="muted">Última atualização</span><strong id="updated-at">—</strong></div><div><span class="muted">Andamento</span><strong id="progress">0 de 4 áreas</strong></div></section>
+    <section class="room-strip" aria-label="Sala do grupo"><div><span class="muted">Sala do grupo</span><strong id="room-code">-</strong></div><div><span class="muted">Última atualização</span><strong id="updated-at">-</strong></div><div><span class="muted">Andamento</span><strong id="progress">0 de 4 áreas</strong></div></section>
     <div class="layout">
       <div class="main-column">
         <nav class="tabs" aria-label="Áreas do grupo" id="tabs"></nav>
         <section class="workspace-card"><div id="role-content"></div></section>
       </div>
       <aside class="side-column">
-        <section class="panel case-panel"><p class="eyebrow">DADOS DO CASO</p><h2>Informações recebidas</h2><p class="small muted">Use estes valores para preencher a DRE. Gastos e tributos são informados como valores positivos; a DRE faz as subtrações.</p><div id="case-context"></div><div id="case-facts"></div></section>
+        <section class="panel case-panel"><p class="eyebrow">DADOS DO CASO</p><h2>Contas para apurar</h2><p class="small muted">Abra a área correspondente para ver as contas de origem. Some os valores e registre o total no formulário; nas contas marcadas (−), subtraia. Deduções e despesas aparecem como valores positivos.</p><div id="case-context"></div><div id="case-facts"></div></section>
         <section class="panel live-panel"><div class="panel-heading"><div><p class="eyebrow">ACOMPANHAMENTO</p><h2>DRE ao vivo</h2></div><span class="live-dot" aria-label="Atualização automática"></span></div><div id="dre-preview"></div></section>
       </aside>
     </div>
   </main>
-  <dialog id="help-dialog"><div class="dialog-head"><div><p class="eyebrow">GUIA DA FUNÇÃO</p><h2 id="help-title"></h2></div><button id="close-help" class="icon-button" aria-label="Fechar ajuda">×</button></div><div id="help-body"></div><button id="help-ok" class="primary">Entendi</button></dialog>
-  <dialog id="reset-dialog"><div class="dialog-head"><div><p class="eyebrow">NOVO EXERCÍCIO</p><h2>Gerar uma nova DRE?</h2></div><button id="close-reset" class="icon-button" aria-label="Fechar">×</button></div><p>No site online, a IA cria uma empresa ficticia e um contexto; o sistema monta valores coerentes para a nova DRE. Na demonstracao local, o exercicio fixo e reiniciado. As respostas e correcoes serao apagadas para todo o grupo.</p><p id="reset-demo" hidden>Na demonstração local, use a senha <strong>treino</strong>; a geração com IA funciona no site online.</p><form id="reset-form"><label for="reset-password">Senha do controller</label><input id="reset-password" type="password" autocomplete="off" required placeholder="Digite a senha"><p id="reset-error" class="form-error" role="alert"></p><div class="dialog-actions"><button type="button" id="cancel-reset" class="ghost">Cancelar</button><button type="submit" class="primary danger-fill">Gerar nova DRE</button></div></form></dialog>
+  <dialog id="help-dialog"><div class="dialog-head"><div><p class="eyebrow">GUIA DA FUNÇÃO</p><h2 id="help-title"></h2></div><button id="close-help" class="icon-button" aria-label="Fechar">×</button></div><div id="help-body"></div><button id="help-ok" class="primary">Entendi</button></dialog>
+  <dialog id="reset-dialog"><div class="dialog-head"><div><p class="eyebrow">NOVO EXERCÍCIO</p><h2>Gerar uma nova DRE?</h2></div><button id="close-reset" class="icon-button" aria-label="Fechar">×</button></div><p>No site online, a IA cria uma empresa fictícia e um contexto; o sistema monta contas de origem com valores coerentes. Na demonstração local, o exercício fixo é reiniciado. As respostas e correções serão apagadas para todo o grupo.</p><p id="reset-demo" hidden>Na demonstração local, use a senha <strong>treino</strong>; a geração com IA funciona no site online.</p><form id="reset-form"><label for="reset-password">Senha do controller</label><input id="reset-password" type="password" autocomplete="off" required placeholder="Digite a senha"><p id="reset-error" class="form-error" role="alert"></p><div class="dialog-actions"><button type="button" id="cancel-reset" class="ghost">Cancelar</button><button type="submit" class="primary danger-fill">Gerar nova DRE</button></div></form></dialog>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <script src="config.js"></script>
   <script type="module" src="app.js"></script>
