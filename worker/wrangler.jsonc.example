@@ -1,0 +1,15 @@
+{
+  "name": "simulado-dre-api",
+  "main": "index.js",
+  "compatibility_date": "2026-10-01",
+  "vars": {
+    "ALLOWED_ORIGIN": "https://SEU_USUARIO.github.io"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "simulado-dre",
+      "database_id": "COLE_O_ID_DO_BANCO"
+    }
+  ]
+}
