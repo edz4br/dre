@@ -52,7 +52,7 @@ async function generateCase(env) {
   const seed = crypto.getRandomValues(new Uint32Array(1))[0] || 1;
   try {
     if (!env.AI) throw new Error('AI binding unavailable');
-    const response = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
+    const response = await env.AI.run('@cf/meta/llama-3.1-8b-instruct-fp8', {
       messages: [
         { role: 'system', content: 'Responda exclusivamente com um objeto JSON valido, sem markdown. Use exatamente as chaves company, sector e context, todas com texto curto em portugues brasileiro. Nao inclua valores financeiros.' },
         { role: 'user', content: 'Crie informacoes originais para um caso didatico de DRE: nome de uma empresa totalmente ficticia, setor e uma frase de contexto. Evite nomes e historias genericas.' }
