@@ -194,7 +194,12 @@ function renderField(role, item) {
   const result = state.checked[role]?.fields?.[item.key];
   const statusClass = result === true ? 'good' : result === false ? 'bad' : '';
   const status = result === true ? '<div class="feedback good">Correto</div>' : result === false ? '<div class="feedback bad">Confira esta apuração</div>' : '';
-  return `<div class="field-row ${item.kind === 'subtotal' ? 'calculated-field' : ''} ${statusClass}"><div class="field-description"><label for="f-${item.key}">${esc(item.label)}</label><small>${esc(item.formula)}</small>${status}</div><div class="field-input"><span>R$</span><input id="f-${item.key}" data-field="${item.key}" inputmode="decimal" autocomplete="off" maxlength="32" placeholder="Valor apurado" value="${esc(state.fields[role][item.key])}" aria-label="${esc(item.label)} em reais"></div></div>`;
+  const sourceLine = DRE_LINES.find(line => line.key === item.key);
+  const sourceSign = sourceLine?.label.match(/^(\([^)]+\)|=)(?=\s)/)?.[1];
+  const sign = sourceLine ? (sourceSign || '') : ({ add: '(+)', subtract: '(−)', total: '=', signed: '(+/−)', signedSubtract: '(+/−)' })[item.display] || '';
+  const signMarkup = sign ? `<span class="operation-sign" aria-hidden="true">${esc(sign)}</span>` : '';
+  const accessibleLabel = `${sign ? `Operação ${sign}. ` : ''}${item.label} em reais`;
+  return `<div class="field-row ${item.kind === 'subtotal' ? 'calculated-field' : ''} ${statusClass}"><div class="field-description"><label for="f-${item.key}">${signMarkup}${esc(item.label)}</label><small>${esc(item.formula)}</small>${status}</div><div class="field-input"><span>R$</span><input id="f-${item.key}" data-field="${item.key}" inputmode="decimal" autocomplete="off" maxlength="32" placeholder="Valor apurado" value="${esc(state.fields[role][item.key])}" aria-label="${esc(accessibleLabel)}"></div></div>`;
 }
 
 function renderScratch(role) {
@@ -405,3 +410,4 @@ else {
   } catch { /* Ignora apenas o rascunho local ilegível. */ }
   renderAll();
 }
+
