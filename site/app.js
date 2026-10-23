@@ -262,8 +262,13 @@ function renderFacts() {
     const facts = groups.map(([key, items]) => {
       const item = FIELDS[role].find(candidate => candidate.key === key);
       if (!item || !items.length) return '';
+            const sourceLine = DRE_LINES.find(line => line.key === item.key);
+      const sourceSign = sourceLine?.label.match(/^(\([^)]+\)|=)(?=\s)/)?.[1];
+      const sign = sourceLine ? (sourceSign || '') : ({ add: '(+)', subtract: '(−)', total: '=', signed: '(+/−)', signedSubtract: '(+/−)' })[item.display] || '';
+      const signMarkup = sign ? `<span class="operation-sign" aria-hidden="true">${esc(sign)}</span>` : '';
+      const accessibleTitle = `${sign ? `${sign} ` : ''}${item.label}`;
       const values = items.map(source => `<div class="fact"><span><i class="fact-sign ${source.effect === 'subtract' ? 'minus' : ''}">${source.effect === 'subtract' ? '−' : '+'}</i>${esc(source.label)}</span><strong>${formatMoney(Math.round(source.value * 100))}</strong></div>`).join('');
-      return `<div class="source-set"><strong>${esc(item.label)}</strong>${values}</div>`;
+      return `<div class="source-set"><strong aria-label="${esc(accessibleTitle)}">${signMarkup}${esc(item.label)}</strong>${values}</div>`;
     }).join('');
     const taxNote = role === 'financing' ? `<div class="source-note"><strong>Premissa tributária do exercício</strong><p>Alíquotas: IR ${state.caseData.taxRates.ir}% e CSLL ${state.caseData.taxRates.csll}%. O caso simplifica a base para praticar a apuração.</p></div>` : '';
     const count = groups.reduce((sum, [, entries]) => sum + entries.length, 0);
