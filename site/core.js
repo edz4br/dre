@@ -1,241 +1,249 @@
-const item = (label, value, effect = 'add') => ({ label, value, ...(effect === 'subtract' ? { effect } : {}) });
-
-export const CASE = {
-  sources: {
-    operational: {
-      revenue: [
-        item('Venda de mercadorias - loja', 1765490.25),
-        item('Venda de mercadorias - canal digital', 523199.31),
-        item('Receita de prestação de serviços', 346100.00)
-      ],
-      cost: [
-        item('Custo das mercadorias vendidas', 180000.00),
-        item('Custo dos serviços prestados', 105000.00),
-        item('Materiais aplicados na produção', 42000.00),
-        item('Mão de obra direta', 68000.00),
-        item('Fretes sobre compras', 27890.78)
-      ],
-      otherRevenue: [
-        item('Receita operacional acessória', 14800.00),
-        item('Receita de serviços complementares', 11547.90)
-      ],
-      sales: [
-        item('Publicidade e propaganda', 25000.00),
-        item('Comissões sobre vendas', 38000.00),
-        item('Fretes sobre vendas', 11568.76)
-      ],
-      research: [
-        item('Pesquisa aplicada', 15000.00),
-        item('Desenvolvimento de produto', 8713.11)
-      ],
-      admin: [
-        item('Salários e ordenados administrativos', 15000.00),
-        item('Pró-labore', 12000.00),
-        item('Encargos trabalhistas', 4500.00),
-        item('Benefícios aos colaboradores', 3212.93),
-        item('Aluguel', 4800.00),
-        item('Energia, água e esgoto', 2300.00),
-        item('Telefonia, internet e material de escritório', 3000.00),
-        item('Honorários contábeis e serviços de terceiros', 7000.00)
-      ],
-      goodwill: [item('Perda por redução ao valor recuperável do ágio', 13173.95)],
-      otherExpense: [
-        item('Taxas e emolumentos', 23000.00),
-        item('Impostos não recuperáveis', 13874.30)
-      ]
-    },
-    investment: {
-      equity: [
-        item('Equivalência patrimonial - Coligada A', 25000.00),
-        item('Equivalência patrimonial - Coligada B', 16200.00)
-      ],
-      otherInvestment: [
-        item('Receita de aluguel de propriedade de investimento', 14300.00),
-        item('Rendimento de ativo financeiro', 6000.00),
-        item('Perda na remensuração de investimento', 1550.00, 'subtract')
-      ]
-    },
-    financing: {
-      interest: [
-        item('Juros de empréstimos', 620000.00),
-        item('Juros de arrendamentos e leasings', 73900.00)
-      ],
-      benefit: [
-        item('Juros sobre benefício pós-emprego', 6400.00),
-        item('Juros sobre obrigação atuarial', 3020.00)
-      ]
-    },
-    controller: {
-      discontinued: [
-        item('Receita da unidade descontinuada', 87500.00),
-        item('Despesas da unidade descontinuada', 70700.00, 'subtract')
-      ]
-    }
-  },
-  taxRates: { ir: 15, csll: 9 },
-  metadata: null
-};
+export const CASE_VERSION = 3;
 
 export const ROLES = [
-  { id: 'operational', name: 'Operacional', people: '2 gerentes', number: '01' },
-  { id: 'investment', name: 'Investimento', people: '1 gerente', number: '02' },
-  { id: 'financing', name: 'Financiamento', people: '1 gerente', number: '03' },
-  { id: 'controller', name: 'Controller', people: 'fechamento', number: '04' }
+  { id: 'operational', name: 'Operacional', people: '2 gerentes', number: '01', points: '1 ponto da área' },
+  { id: 'investment', name: 'Investimento', people: '1 gerente', number: '02', points: '1 ponto da área' },
+  { id: 'financing', name: 'Financiamento e tributos', people: '1 gerente', number: '03', points: '1 ponto da área' },
+  { id: 'controller', name: 'Controller', people: 'fechamento', number: '04', points: 'fecha a DRE' }
 ];
+
+const field = (key, label, kind, formula, group, display = 'normal') => ({ key, label, kind, formula, group, display });
 
 export const FIELD_DEFINITIONS = {
   operational: [
-    { key: 'revenue', label: 'Receitas brutas', kind: 'plus', group: 'Receitas e custos', formula: 'Some as vendas de mercadorias e as receitas de prestação de serviços.' },
-    { key: 'cost', label: 'Custos dos produtos e serviços vendidos', kind: 'minus', group: 'Receitas e custos', formula: 'Some mercadorias, serviços, materiais, mão de obra direta e fretes sobre compras.' },
-    { key: 'gross', label: 'Lucro bruto', kind: 'subtotal', group: 'Receitas e custos', formula: 'Receitas brutas − custos dos produtos e serviços vendidos.' },
-    { key: 'otherRevenue', label: 'Outras receitas operacionais', kind: 'plus', group: 'Despesas e resultado operacional', formula: 'Some as contas de outras receitas da operação.' },
-    { key: 'sales', label: 'Despesas de vendas', kind: 'minus', group: 'Despesas e resultado operacional', formula: 'Some publicidade, comissões e fretes sobre vendas.' },
-    { key: 'research', label: 'Despesas de pesquisa e desenvolvimento', kind: 'minus', group: 'Despesas e resultado operacional', formula: 'Some os gastos de pesquisa e desenvolvimento.' },
-    { key: 'admin', label: 'Despesas gerais e administrativas', kind: 'minus', group: 'Despesas e resultado operacional', formula: 'Some as contas administrativas.' },
-    { key: 'goodwill', label: 'Perda por redução ao valor recuperável do ágio', kind: 'variable', group: 'Despesas e resultado operacional', formula: 'A perda informada reduz o resultado operacional.' },
-    { key: 'otherExpense', label: 'Outras despesas operacionais', kind: 'minus', group: 'Despesas e resultado operacional', formula: 'Some taxas, emolumentos e impostos não recuperáveis.' },
-    { key: 'operating', label: 'Resultado operacional', kind: 'subtotal', group: 'Despesas e resultado operacional', formula: 'Lucro bruto + outras receitas − despesas operacionais.' }
+    field('grossRevenue', 'Receita bruta de vendas e serviços', 'input', 'Some as vendas de cada canal e as receitas de prestação de serviços.', 'Receita e formação do resultado operacional', 'add'),
+    field('deductions', 'Deduções da receita bruta', 'input', 'Some os tributos sobre vendas, devoluções e descontos incondicionais. Registre o total positivo; a DRE o apresenta como dedução.', 'Receita e formação do resultado operacional', 'subtract'),
+    field('netRevenue', 'Receita líquida de vendas', 'subtotal', 'Receita bruta − deduções.', 'Receita e formação do resultado operacional', 'total'),
+    field('otherOperatingRevenue', 'Outras receitas operacionais', 'input', 'Some as receitas ligadas à operação que não são vendas principais.', 'Receita e formação do resultado operacional', 'add'),
+    field('materialsConsumption', 'Consumo de matérias-primas e materiais', 'input', 'Estoque inicial + compras − estoque final. Some materiais e componentes usados na operação.', 'Gastos operacionais por natureza', 'subtract'),
+    field('inventoryVariation', 'Variação positiva ou negativa nos estoques', 'input', 'Estoque final − estoque inicial. Aumento de estoque é positivo; redução é negativa.', 'Gastos operacionais por natureza', 'signed'),
+    field('employeeExpenses', 'Despesas com salários e benefícios', 'input', 'Some salários, encargos e benefícios do período.', 'Gastos operacionais por natureza', 'subtract'),
+    field('depreciation', 'Despesas de depreciação', 'input', 'Some a depreciação dos bens usados na operação.', 'Gastos operacionais por natureza', 'subtract'),
+    field('amortization', 'Despesas de amortização', 'input', 'Some a amortização de licenças, sistemas e outros intangíveis.', 'Gastos operacionais por natureza', 'subtract'),
+    field('researchDevelopment', 'Despesas de pesquisa e desenvolvimento', 'input', 'Some os gastos do período com pesquisa e desenvolvimento reconhecidos como despesa.', 'Gastos operacionais por natureza', 'subtract'),
+    field('marketing', 'Despesas de marketing e vendas', 'input', 'Some propaganda, comissões e ações comerciais do período.', 'Gastos operacionais por natureza', 'subtract'),
+    field('impairment', 'Perdas por redução ao valor recuperável', 'input', 'Some as perdas de impairment. Se houver reversão, considere-a como valor negativo.', 'Gastos operacionais por natureza', 'signedSubtract'),
+    field('otherOperatingExpenses', 'Outras despesas operacionais', 'input', 'Some os demais gastos ligados à operação, sem repetir valores já classificados acima.', 'Gastos operacionais por natureza', 'subtract'),
+    field('operatingProfit', 'Lucro ou prejuízo operacional', 'subtotal', 'Receita líquida + outras receitas − gastos operacionais + variação nos estoques.', 'Fechamento operacional', 'total')
   ],
   investment: [
-    { key: 'equity', label: 'Resultado de equivalência patrimonial', kind: 'plus', formula: 'Some os resultados de equivalência patrimonial das coligadas.' },
-    { key: 'otherInvestment', label: 'Outras receitas e despesas de investimentos', kind: 'variable', formula: 'Some as receitas e subtraia as despesas identificadas com (−).' },
-    { key: 'beforeFinance', label: 'Resultado antes do financiamento e tributos', kind: 'subtotal', formula: 'Resultado operacional + resultados de investimentos.' }
+    field('equity', 'Resultado de equivalência patrimonial', 'input', 'Some os resultados de coligadas e empreendimentos em conjunto (joint ventures), preservando os sinais.', 'Investimentos', 'signed'),
+    field('otherInvestment', 'Outras receitas e despesas de investimentos', 'input', 'Some aluguéis de propriedades para investimento, rendimentos de ativos, dividendos e variações a valor justo; subtraia as perdas.', 'Investimentos', 'signed'),
+    field('beforeFinancingTaxes', 'Resultado antes de financiamento e tributos sobre o lucro', 'subtotal', 'Resultado operacional + resultados de investimentos.', 'Fechamento de investimentos', 'total')
   ],
   financing: [
-    { key: 'interest', label: 'Despesas de juros com empréstimos e leasings', kind: 'minus', formula: 'Some os juros dos empréstimos e dos arrendamentos.' },
-    { key: 'benefit', label: 'Despesas de juros com benefícios a empregados', kind: 'minus', formula: 'Some os juros das obrigações de benefícios aos empregados.' },
-    { key: 'beforeTax', label: 'Resultado antes do imposto de renda', kind: 'subtotal', formula: 'Resultado anterior − despesas de juros.' },
-    { key: 'tax', label: 'Imposto de renda e contribuição social', kind: 'minus', formula: 'Calcule IR e CSLL separadamente sobre o resultado antes do imposto e some os dois.' }
+    field('interestBorrowingsLeases', 'Juros de empréstimos, financiamentos e arrendamentos', 'input', 'Some os juros dos passivos usados para captar recursos e dos arrendamentos.', 'Financiamento', 'subtract'),
+    field('interestEmployeeBenefits', 'Juros de benefícios a empregados', 'input', 'Some os juros das obrigações de benefícios a empregados informados no relatório.', 'Financiamento', 'subtract'),
+    field('fxFinancing', 'Variação cambial sobre financiamentos', 'input', 'Ganho cambial é positivo; perda cambial é negativa.', 'Financiamento', 'signed'),
+    field('provisionExpense', 'Despesas relacionadas a provisões', 'input', 'Registre a despesa como positiva e uma reversão como negativa.', 'Financiamento', 'signedSubtract'),
+    field('beforeTax', 'Resultado antes do IR e da CSLL', 'subtotal', 'Resultado antes de financiamento e tributos − juros + ganhos cambiais − despesas com provisões.', 'Fechamento do financiamento', 'total'),
+    field('incomeTaxContinuing', 'IR das operações continuadas', 'input', 'Resultado antes dos tributos × alíquota de IR indicada no caso.', 'IR e CSLL das operações continuadas', 'subtract'),
+    field('socialContributionContinuing', 'CSLL das operações continuadas', 'input', 'Resultado antes dos tributos × alíquota de CSLL indicada no caso.', 'IR e CSLL das operações continuadas', 'subtract'),
+    field('taxContinuing', 'Total de IR e CSLL das operações continuadas', 'subtotal', 'Some o IR e a CSLL calculados separadamente acima; a DRE apresenta o total.', 'IR e CSLL das operações continuadas', 'subtract'),
+    field('afterTaxContinuing', 'Resultado líquido das operações continuadas', 'subtotal', 'Resultado antes do IR e da CSLL − IR e CSLL das operações continuadas.', 'Tributos sobre o lucro', 'total'),
+    field('discontinuedBeforeTax', 'Resultado antes dos tributos da unidade descontinuada', 'subtotal', 'Receitas da unidade descontinuada - despesas da unidade descontinuada.', 'IR e CSLL da operação descontinuada', 'total'),
+    field('incomeTaxDiscontinued', 'IR da operação descontinuada', 'input', 'Resultado antes dos tributos da unidade × alíquota de IR indicada no caso.', 'IR e CSLL da operação descontinuada', 'subtract'),
+    field('socialContributionDiscontinued', 'CSLL da operação descontinuada', 'input', 'Resultado antes dos tributos da unidade × alíquota de CSLL indicada no caso.', 'IR e CSLL da operação descontinuada', 'subtract'),
+    field('taxDiscontinued', 'Total de IR e CSLL da operação descontinuada', 'subtotal', 'Some o IR e a CSLL calculados separadamente; informe o total ao controller.', 'IR e CSLL da operação descontinuada', 'subtract')
   ],
   controller: [
-    { key: 'discontinued', label: 'Resultado de operações descontinuadas', kind: 'variable', formula: 'Some a receita e subtraia as despesas da unidade descontinuada.' },
-    { key: 'final', label: 'Resultado do exercício', kind: 'subtotal', formula: 'Resultado antes do imposto − tributos + operações descontinuadas.' }
+    field('discontinuedRevenue', 'Receitas da unidade descontinuada', 'input', 'Some as receitas detalhadas dessa unidade.', 'Operações descontinuadas', 'add'),
+    field('discontinuedExpenses', 'Despesas da unidade descontinuada', 'input', 'Some os custos e despesas detalhados dessa unidade.', 'Operações descontinuadas', 'subtract'),
+    field('discontinued', 'Resultado líquido das operações descontinuadas', 'subtotal', 'Receitas − despesas − IR e CSLL atribuídos à unidade, usando o valor informado pelo gerente de financiamento.', 'Operações descontinuadas', 'signed'),
+    field('final', 'Lucro líquido do exercício', 'subtotal', 'Resultado líquido das operações continuadas + resultado líquido das operações descontinuadas.', 'Fechamento do controller', 'total')
   ]
 };
 
+export const FIELDS = FIELD_DEFINITIONS;
+
 export const SOURCE_FIELDS = {
-  operational: ['revenue', 'cost', 'otherRevenue', 'sales', 'research', 'admin', 'goodwill', 'otherExpense'],
+  operational: ['grossRevenue', 'deductions', 'otherOperatingRevenue', 'materialsConsumption', 'inventoryVariation', 'employeeExpenses', 'depreciation', 'amortization', 'researchDevelopment', 'marketing', 'impairment', 'otherOperatingExpenses'],
   investment: ['equity', 'otherInvestment'],
-  financing: ['interest', 'benefit'],
-  controller: ['discontinued']
+  financing: ['interestBorrowingsLeases', 'interestEmployeeBenefits', 'fxFinancing', 'provisionExpense'],
+  controller: ['discontinuedRevenue', 'discontinuedExpenses']
 };
 
-export const FIELDS = FIELD_DEFINITIONS;
-export const EMPTY = () => Object.fromEntries(ROLES.map(role => [role.id, Object.fromEntries(FIELDS[role.id].map(field => [field.key, '']))]));
+export const EMPTY = () => Object.fromEntries(ROLES.map(role => [role.id, Object.fromEntries(FIELDS[role.id].map(item => [item.key, '']))]));
+export const EMPTY_SCRATCH = () => ({ operational: '', investment: '', financing: '' });
 
-const sourceCents = items => (items || []).reduce((total, entry) => total + (entry.effect === 'subtract' ? -1 : 1) * Math.round(Number(entry.value) * 100), 0);
-const sourceTotal = (sources, role, key) => sourceCents(sources?.[role]?.[key]);
+const money = value => Math.round(Number(value) * 100) / 100;
 const cents = value => Math.round(Number(value) * 100);
+const groupCents = entries => (entries || []).reduce((total, entry) => total + (entry.effect === 'subtract' ? -1 : 1) * cents(entry.value), 0);
+const groupTotal = (sources, role, key) => groupCents(sources?.[role]?.[key]);
+const asMoney = value => value / 100;
+const entry = (label, value, effect) => ({ label, value: Math.max(0.01, money(value)), ...(effect ? { effect } : {}) });
+
+function split(total, labels, random) {
+  const totalCents = Math.max(labels.length, cents(total));
+  const weights = labels.map(() => 0.4 + random());
+  const weightSum = weights.reduce((sum, value) => sum + value, 0);
+  let allocated = 0;
+  return labels.map((label, index) => {
+    const left = labels.length - index - 1;
+    const amount = index === labels.length - 1
+      ? totalCents - allocated
+      : Math.min(totalCents - allocated - left, Math.max(1, Math.round(totalCents * weights[index] / weightSum)));
+    allocated += amount;
+    return entry(label, amount / 100);
+  });
+}
+
+function taxParts(baseCents, rates) {
+  return {
+    incomeTax: Math.round(baseCents * rates.ir / 100),
+    socialContribution: Math.round(baseCents * rates.csll / 100)
+  };
+}
+
+function calculatedTax(baseCents, rates) {
+  const parts = taxParts(baseCents, rates);
+  return parts.incomeTax + parts.socialContribution;
+}
 
 export function createPracticeCase(seed = Date.now(), metadata = null) {
-  let state = Number(seed) >>> 0 || 1;
+  let state = (Number(seed) >>> 0) || 1;
   const random = () => { state = (Math.imul(state, 1664525) + 1013904223) >>> 0; return state / 4294967296; };
-  const money = value => Math.round(value * 100) / 100;
-  const ratio = (base, min, max) => money(base * (min + random() * (max - min)));
-  const one = (label, value, effect) => ({ label, value: Math.max(0.01, money(value)), ...(effect ? { effect } : {}) });
-  const split = (total, labels) => {
-    const totalCents = Math.max(labels.length, Math.round(total * 100));
-    const weights = labels.map(() => 0.35 + random());
-    const weightTotal = weights.reduce((sum, value) => sum + value, 0);
-    let allocated = 0;
-    return labels.map((label, index) => {
-      const amount = index === labels.length - 1 ? totalCents - allocated : Math.max(1, Math.round(totalCents * weights[index] / weightTotal));
-      allocated += amount;
-      return one(label, amount / 100);
-    });
+  const amount = (base, min, max) => money(base * (min + random() * (max - min)));
+  const revenue = money(260_000 + random() * 3_740_000);
+  const deductions = amount(revenue, 0.075, 0.13);
+  const netRevenue = revenue - deductions;
+  const materialUse = amount(netRevenue, 0.30, 0.38);
+  const materialOpening = amount(netRevenue, 0.09, 0.14);
+  const materialClosing = amount(netRevenue, 0.07, 0.12);
+  const materialPurchases = money(materialUse - materialOpening + materialClosing);
+  const stockChange = amount(netRevenue, 0.012, 0.032);
+  const stockOpening = amount(netRevenue, 0.035, 0.06);
+  const stockClosing = money(stockOpening + stockChange);
+
+  const operational = {
+    grossRevenue: split(revenue, ['Vendas de produtos no canal físico', 'Vendas no canal digital', 'Receitas de prestação de serviços'], random),
+    deductions: split(deductions, ['Tributos incidentes sobre vendas', 'Devoluções de vendas', 'Descontos incondicionais concedidos'], random),
+    otherOperatingRevenue: split(amount(netRevenue, 0.006, 0.018), ['Recuperação de crédito operacional', 'Receita acessória da operação'], random),
+    materialsConsumption: [
+      entry('Estoque inicial de matérias-primas e materiais', materialOpening),
+      entry('Compras de matérias-primas e materiais', materialPurchases),
+      entry('Estoque final de matérias-primas e materiais', materialClosing, 'subtract')
+    ],
+    inventoryVariation: [
+      entry('Estoque final de produtos acabados e em elaboração', stockClosing),
+      entry('Estoque inicial de produtos acabados e em elaboração', stockOpening, 'subtract')
+    ],
+    employeeExpenses: split(amount(netRevenue, 0.105, 0.155), ['Salários da equipe operacional', 'Encargos sociais', 'Benefícios dos colaboradores'], random),
+    depreciation: split(amount(netRevenue, 0.014, 0.031), ['Depreciação de máquinas e equipamentos', 'Depreciação de veículos e instalações'], random),
+    amortization: split(amount(netRevenue, 0.004, 0.013), ['Amortização de sistemas e licenças', 'Amortização de outros intangíveis'], random),
+    researchDevelopment: split(amount(netRevenue, 0.008, 0.022), ['Pesquisa aplicada', 'Desenvolvimento de novos produtos'], random),
+    marketing: split(amount(netRevenue, 0.021, 0.048), ['Publicidade e propaganda', 'Comissões e ações comerciais'], random),
+    impairment: [entry('Perda por redução ao valor recuperável do ágio', amount(netRevenue, 0.003, 0.012))],
+    otherOperatingExpenses: split(amount(netRevenue, 0.026, 0.052), ['Aluguel, energia e serviços da operação', 'Fretes e logística de vendas', 'Serviços profissionais e taxas operacionais'], random)
   };
 
-  const revenue = money(150_000 + random() * 4_850_000);
-  const cost = ratio(revenue, 0.36, 0.56);
-  const operational = {
-    revenue: split(revenue, ['Venda de mercadorias - loja', 'Venda de mercadorias - canal digital', 'Receita de prestação de serviços']),
-    cost: split(cost, ['Custo das mercadorias vendidas', 'Custo dos serviços prestados', 'Materiais aplicados na produção', 'Mão de obra direta', 'Fretes sobre compras']),
-    otherRevenue: split(ratio(revenue, 0.004, 0.025), ['Receita operacional acessória', 'Receita de serviços complementares']),
-    sales: split(ratio(revenue, 0.025, 0.055), ['Publicidade e propaganda', 'Comissões sobre vendas', 'Fretes sobre vendas']),
-    research: split(ratio(revenue, 0.004, 0.018), ['Pesquisa aplicada', 'Desenvolvimento de produto']),
-    admin: split(ratio(revenue, 0.035, 0.085), ['Salários e ordenados administrativos', 'Pró-labore', 'Encargos trabalhistas', 'Benefícios aos colaboradores', 'Aluguel', 'Energia, água e esgoto', 'Telefonia, internet e material de escritório', 'Honorários contábeis e serviços de terceiros']),
-    goodwill: [one('Perda por redução ao valor recuperável do ágio', ratio(revenue, 0.002, 0.01))],
-    otherExpense: split(ratio(revenue, 0.004, 0.018), ['Taxas e emolumentos', 'Impostos não recuperáveis'])
-  };
-  const operatingResult = sourceCents(operational.revenue) - sourceCents(operational.cost) + sourceCents(operational.otherRevenue) - sourceCents(operational.sales) - sourceCents(operational.research) - sourceCents(operational.admin) - sourceCents(operational.goodwill) - sourceCents(operational.otherExpense);
-  const investmentBase = Math.max(1, operatingResult / 100);
-  const equity = ratio(investmentBase, 0.01, 0.07);
-  const investmentIncome = ratio(investmentBase, 0.01, 0.055);
-  const investmentExpense = ratio(investmentIncome, 0.08, 0.28);
+  const preliminaryOperating = groupTotal({ operational }, 'operational', 'grossRevenue')
+    - groupTotal({ operational }, 'operational', 'deductions')
+    + groupTotal({ operational }, 'operational', 'otherOperatingRevenue')
+    - groupTotal({ operational }, 'operational', 'materialsConsumption')
+    + groupTotal({ operational }, 'operational', 'inventoryVariation')
+    - groupTotal({ operational }, 'operational', 'employeeExpenses')
+    - groupTotal({ operational }, 'operational', 'depreciation')
+    - groupTotal({ operational }, 'operational', 'amortization')
+    - groupTotal({ operational }, 'operational', 'researchDevelopment')
+    - groupTotal({ operational }, 'operational', 'marketing')
+    - groupTotal({ operational }, 'operational', 'impairment')
+    - groupTotal({ operational }, 'operational', 'otherOperatingExpenses');
+  const operatingCents = preliminaryOperating;
+  const operating = asMoney(operatingCents);
+  const investmentIncome = amount(operating, 0.035, 0.075);
+  const investmentLoss = amount(investmentIncome, 0.08, 0.19);
   const investment = {
-    equity: split(equity, ['Equivalência patrimonial - Coligada A', 'Equivalência patrimonial - Coligada B']),
+    equity: [
+      entry('Resultado de equivalência patrimonial - coligada', amount(operating, 0.018, 0.045)),
+      entry('Resultado de equivalência patrimonial - joint venture', amount(operating, 0.006, 0.025))
+    ],
     otherInvestment: [
-      one('Receita de aluguel de propriedade de investimento', investmentIncome * 0.62),
-      one('Rendimento de ativo financeiro', investmentIncome * 0.38),
-      one('Perda na remensuração de investimento', investmentExpense, 'subtract')
+      entry('Receita de aluguel de propriedade para investimento', investmentIncome * 0.24),
+      entry('Rendimentos de ativos financeiros', investmentIncome * 0.27),
+      entry('Rendimentos de caixa e equivalentes de caixa', investmentIncome * 0.16),
+      entry('Receita de dividendos', investmentIncome * 0.18),
+      entry('Ganho em variação a valor justo de investimento', investmentIncome * 0.15),
+      entry('Perda em variação a valor justo de investimento', investmentLoss, 'subtract')
     ]
   };
-  const beforeFinance = operatingResult + sourceCents(investment.equity) + sourceCents(investment.otherInvestment);
+  const beforeFinancing = operatingCents + groupTotal({ investment }, 'investment', 'equity') + groupTotal({ investment }, 'investment', 'otherInvestment');
+  const beforeFinancingAmount = asMoney(beforeFinancing);
+  const fxValue = amount(beforeFinancingAmount, 0.004, 0.016);
+  const fxIsLoss = random() < 0.5;
+  const fxEntry = entry(fxIsLoss ? 'Perda cambial sobre financiamento' : 'Ganho cambial sobre financiamento', fxValue, fxIsLoss ? 'subtract' : undefined);
+  const provisionExpense = amount(beforeFinancingAmount, 0.009, 0.024);
   const financing = {
-    interest: split(ratio(beforeFinance / 100, 0.11, 0.25), ['Juros de empréstimos', 'Juros de arrendamentos e leasings']),
-    benefit: split(ratio(beforeFinance / 100, 0.003, 0.02), ['Juros sobre benefício pós-emprego', 'Juros sobre obrigação atuarial'])
-  };
-  const beforeTax = beforeFinance - sourceCents(financing.interest) - sourceCents(financing.benefit);
-  const discontinuedRevenue = ratio(beforeTax / 100, 0.01, 0.03);
-  const discontinuedExpense = ratio(discontinuedRevenue, 0.35, 0.8);
-  const controller = {
-    discontinued: [
-      one('Receita da unidade descontinuada', discontinuedRevenue),
-      one('Despesas da unidade descontinuada', discontinuedExpense, 'subtract')
+    interestBorrowingsLeases: split(amount(beforeFinancingAmount, 0.075, 0.145), ['Juros de empréstimos e financiamentos', 'Juros de passivos de arrendamento'], random),
+    interestEmployeeBenefits: split(amount(beforeFinancingAmount, 0.004, 0.016), ['Juros de benefícios pós-emprego', 'Atualização financeira de obrigação a empregados'], random),
+    fxFinancing: [fxEntry],
+    provisionExpense: [
+      entry('Despesa de atualização de provisões', provisionExpense * 0.63),
+      entry('Despesa de provisão para obrigação operacional', provisionExpense * 0.37)
     ]
   };
+  const beforeTax = beforeFinancing
+    - groupTotal({ financing }, 'financing', 'interestBorrowingsLeases')
+    - groupTotal({ financing }, 'financing', 'interestEmployeeBenefits')
+    + groupTotal({ financing }, 'financing', 'fxFinancing')
+    - groupTotal({ financing }, 'financing', 'provisionExpense');
   const taxRates = seed % 2 ? { ir: 15, csll: 9 } : { ir: 11, csll: 8 };
-  return { sources: { operational, investment, financing, controller }, taxRates, metadata };
+  const taxContinuing = calculatedTax(beforeTax, taxRates);
+  const discontinuedRevenue = amount(asMoney(beforeTax), 0.035, 0.07);
+  const discontinuedExpenses = money(discontinuedRevenue * (0.48 + random() * 0.17));
+  const discontinuedPreTax = cents(discontinuedRevenue) - cents(discontinuedExpenses);
+  const taxDiscontinued = calculatedTax(discontinuedPreTax, taxRates);
+  const controller = {
+    discontinuedRevenue: split(discontinuedRevenue, ['Receita de vendas da unidade encerrada', 'Outras receitas da unidade encerrada'], random),
+    discontinuedExpenses: split(discontinuedExpenses, ['Custos da unidade encerrada', 'Despesas de encerramento e operação'], random)
+  };
+
+  const defaultMetadata = { company: 'Companhia Horizonte', sector: 'Comércio e manufatura', context: 'A companhia vende produtos próprios em canais físico e digital, presta serviços complementares e encerrou uma linha de negócio no período.', source: 'automático' };
+  return {
+    schemaVersion: CASE_VERSION,
+    sources: { operational, investment, financing, controller },
+    taxRates,
+    taxDiscontinuedCents: taxDiscontinued,
+    metadata: { ...defaultMetadata, ...(metadata || {}), schemaVersion: CASE_VERSION }
+  };
 }
+
+export const CASE = createPracticeCase(20261023, {
+  company: 'Companhia Horizonte',
+  sector: 'Comércio e manufatura',
+  context: 'A companhia vende produtos próprios em canais físico e digital, presta serviços complementares e encerrou uma linha de negócio no período.',
+  source: 'caso de demonstração'
+});
 
 function normalizedTaxRates(value) {
   const rate = (raw, fallback) => {
     const number = Number(raw);
-    return Number.isFinite(number) && number > 0 && number <= 40 ? Math.round(number * 100) / 100 : fallback;
+    return Number.isFinite(number) && number >= 0 && number <= 40 ? Math.round(number * 100) / 100 : fallback;
   };
   return { ir: rate(value?.ir, CASE.taxRates.ir), csll: rate(value?.csll, CASE.taxRates.csll) };
 }
 
-function legacySourceGroup(role, key, legacy) {
-  const template = CASE.sources[role]?.[key] || [];
-  const oldValue = legacy?.[role]?.find(field => field.key === key)?.value;
-  if (!Number.isFinite(Number(oldValue)) || Number(oldValue) <= 0 || !template.length) return template.map(entry => ({ ...entry }));
-  const expected = cents(oldValue);
-  const templateTotal = sourceCents(template);
-  if (!templateTotal) return template.map(entry => ({ ...entry }));
-  const scale = expected / templateTotal;
-  const result = template.map(entry => ({ ...entry, value: Math.max(1, Math.round(cents(entry.value) * scale)) / 100 }));
-  const delta = expected - sourceCents(result);
-  const adjustment = result.findLastIndex(entry => entry.effect !== 'subtract');
-  const index = adjustment >= 0 ? adjustment : result.length - 1;
-  result[index].value = Math.max(0.01, Math.round(cents(result[index].value) + delta) / 100);
-  return result;
-}
-
 export function normalizeCaseData(data = CASE) {
-  if (data?.sources && typeof data.sources === 'object') {
-    const sources = Object.fromEntries(Object.entries(SOURCE_FIELDS).map(([role, keys]) => [role,
-      Object.fromEntries(keys.map(key => {
-        const template = CASE.sources[role]?.[key] || [];
-        const received = data.sources?.[role]?.[key];
-        const entries = Array.isArray(received) && received.length ? received : template;
-        return [key, entries.map((entry, index) => {
-          const value = Number(entry?.value);
-          return {
-            label: String(entry?.label || template[index]?.label || `Conta ${index + 1}`).slice(0, 100),
-            value: Number.isFinite(value) && value > 0 ? Math.round(value * 100) / 100 : Number(template[index]?.value || 0.01),
-            ...(entry?.effect === 'subtract' ? { effect: 'subtract' } : {})
-          };
-        })];
-      }))
-    ]));
-    return { sources, taxRates: normalizedTaxRates(data.taxRates), metadata: data.metadata || null };
-  }
-  const legacy = data || {};
+  if (!data || data.schemaVersion !== CASE_VERSION || !data.sources) return CASE;
   const sources = Object.fromEntries(Object.entries(SOURCE_FIELDS).map(([role, keys]) => [role,
-    Object.fromEntries(keys.map(key => [key, legacySourceGroup(role, key, legacy)]))
+    Object.fromEntries(keys.map(key => {
+      const template = CASE.sources[role]?.[key] || [];
+      const received = data.sources?.[role]?.[key];
+      const items = Array.isArray(received) && received.length ? received : template;
+      return [key, items.map((value, index) => {
+        const amount = Number(value?.value);
+        return {
+          label: String(value?.label || template[index]?.label || `Conta ${index + 1}`).slice(0, 100),
+          value: Number.isFinite(amount) && amount > 0 ? Math.round(amount * 100) / 100 : Number(template[index]?.value || 0.01),
+          ...(value?.effect === 'subtract' ? { effect: 'subtract' } : {})
+        };
+      })];
+    }))
   ]));
-  return { sources, taxRates: normalizedTaxRates(legacy.taxRates), metadata: legacy.metadata || null };
+  const rates = normalizedTaxRates(data.taxRates);
+  const discontinuedBeforeTax = groupTotal(sources, 'controller', 'discontinuedRevenue') - groupTotal(sources, 'controller', 'discontinuedExpenses');
+  const taxDiscontinuedCents = calculatedTax(discontinuedBeforeTax, rates);
+  return { schemaVersion: CASE_VERSION, sources, taxRates: rates, taxDiscontinuedCents, metadata: data.metadata || null };
 }
 
 export const normalizeMoney = input => {
@@ -246,42 +254,72 @@ export const normalizeMoney = input => {
   let normalized = clean;
   if (clean.includes(',') && clean.includes('.')) normalized = clean.replace(/\./g, '').replace(',', '.');
   else if (clean.includes(',')) normalized = clean.replace(',', '.');
-  else if (/^\d{1,3}(\.\d{3})+$/.test(clean)) normalized = clean.replace(/\./g, '');
+  else if (/^-?\d{1,3}(\.\d{3})+$/.test(clean)) normalized = clean.replace(/\./g, '');
   const value = Number(normalized);
   return Number.isFinite(value) ? Math.round(value * 100) : null;
 };
 
-export const formatMoney = amount => amount === null || amount === undefined ? '—' : (amount / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+export const formatMoney = amount => amount === null || amount === undefined
+  ? '—'
+  : (amount / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
 export function answers(caseData = CASE) {
   const normalized = normalizeCaseData(caseData);
   const { sources, taxRates } = normalized;
-  const operational = Object.fromEntries(SOURCE_FIELDS.operational.map(key => [key, sourceTotal(sources, 'operational', key)]));
-  operational.gross = operational.revenue - operational.cost;
-  operational.operating = operational.gross + operational.otherRevenue - operational.sales - operational.research - operational.admin - operational.goodwill - operational.otherExpense;
+  const operational = Object.fromEntries(SOURCE_FIELDS.operational.map(key => [key, groupTotal(sources, 'operational', key)]));
+  operational.netRevenue = operational.grossRevenue - operational.deductions;
+  operational.operatingProfit = operational.netRevenue
+    + operational.otherOperatingRevenue
+    - operational.materialsConsumption
+    + operational.inventoryVariation
+    - operational.employeeExpenses
+    - operational.depreciation
+    - operational.amortization
+    - operational.researchDevelopment
+    - operational.marketing
+    - operational.impairment
+    - operational.otherOperatingExpenses;
 
-  const investment = Object.fromEntries(SOURCE_FIELDS.investment.map(key => [key, sourceTotal(sources, 'investment', key)]));
-  investment.beforeFinance = operational.operating + investment.equity + investment.otherInvestment;
+  const investment = Object.fromEntries(SOURCE_FIELDS.investment.map(key => [key, groupTotal(sources, 'investment', key)]));
+  investment.beforeFinancingTaxes = operational.operatingProfit + investment.equity + investment.otherInvestment;
 
-  const financing = Object.fromEntries(SOURCE_FIELDS.financing.map(key => [key, sourceTotal(sources, 'financing', key)]));
-  financing.beforeTax = investment.beforeFinance - financing.interest - financing.benefit;
-  financing.tax = Math.round(financing.beforeTax * taxRates.ir / 100) + Math.round(financing.beforeTax * taxRates.csll / 100);
+  const financing = Object.fromEntries(SOURCE_FIELDS.financing.map(key => [key, groupTotal(sources, 'financing', key)]));
+  financing.beforeTax = investment.beforeFinancingTaxes
+    - financing.interestBorrowingsLeases
+    - financing.interestEmployeeBenefits
+    + financing.fxFinancing
+    - financing.provisionExpense;
+  const continuingTax = taxParts(financing.beforeTax, taxRates);
+  financing.incomeTaxContinuing = continuingTax.incomeTax;
+  financing.socialContributionContinuing = continuingTax.socialContribution;
+  financing.taxContinuing = continuingTax.incomeTax + continuingTax.socialContribution;
+  financing.afterTaxContinuing = financing.beforeTax - financing.taxContinuing;
 
-  const controller = { discontinued: sourceTotal(sources, 'controller', 'discontinued') };
-  controller.final = financing.beforeTax - financing.tax + controller.discontinued;
+  const controller = Object.fromEntries(SOURCE_FIELDS.controller.map(key => [key, groupTotal(sources, 'controller', key)]));
+  financing.discontinuedBeforeTax = controller.discontinuedRevenue - controller.discontinuedExpenses;
+  const discontinuedTax = taxParts(financing.discontinuedBeforeTax, taxRates);
+  financing.incomeTaxDiscontinued = discontinuedTax.incomeTax;
+  financing.socialContributionDiscontinued = discontinuedTax.socialContribution;
+  financing.taxDiscontinued = discontinuedTax.incomeTax + discontinuedTax.socialContribution;
+  controller.discontinued = controller.discontinuedRevenue - controller.discontinuedExpenses - financing.taxDiscontinued;
+  controller.final = financing.afterTaxContinuing + controller.discontinued;
   return { operational, investment, financing, controller };
 }
 
-export function grade(role, fields, caseData = CASE, reportedFields = null) {
-  const sourceExpected = answers(caseData)[role];
-  if (!sourceExpected) throw new Error('Área inválida');
-  const expected = { ...sourceExpected };
+export function grade(role, values, caseData = CASE, reportedFields = null) {
+  const solution = answers(caseData)[role];
+  if (!solution) throw new Error('Área inválida');
+  const expected = { ...solution };
   if (role === 'controller') {
-    const beforeTax = normalizeMoney(reportedFields?.financing?.beforeTax);
-    const tax = normalizeMoney(reportedFields?.financing?.tax);
-    const discontinued = normalizeMoney(fields?.discontinued);
-    expected.final = beforeTax === null || tax === null || discontinued === null ? Number.NaN : beforeTax - tax + discontinued;
+    const reportedTax = normalizeMoney(reportedFields?.financing?.taxDiscontinued);
+    const reportedContinuing = normalizeMoney(reportedFields?.financing?.afterTaxContinuing);
+    expected.discontinued = reportedTax === null
+      ? Number.NaN
+      : solution.discontinuedRevenue - solution.discontinuedExpenses - reportedTax;
+    expected.final = reportedContinuing === null
+      ? Number.NaN
+      : reportedContinuing + expected.discontinued;
   }
-  const result = Object.fromEntries(Object.keys(expected).map(key => [key, normalizeMoney(fields?.[key]) === expected[key]]));
-  return { fields: result, correct: Object.values(result).every(Boolean), count: Object.values(result).filter(Boolean).length, total: Object.keys(result).length };
+  const checked = Object.fromEntries(Object.keys(expected).map(key => [key, normalizeMoney(values?.[key]) === expected[key]]));
+  return { fields: checked, correct: Object.values(checked).every(Boolean), count: Object.values(checked).filter(Boolean).length, total: Object.keys(checked).length };
 }
