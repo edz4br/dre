@@ -2,93 +2,113 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { answers, CASE, EMPTY, FIELDS, createPracticeCase, grade, normalizeCaseData, normalizeMoney } from '../site/core.js';
 
-test('a estrutura segue a DRE ensinada e cada gerente apura contas e subtotais da sua área', () => {
-  assert.deepEqual(FIELDS.operational.map(field => field.key), ['revenue', 'cost', 'gross', 'otherRevenue', 'sales', 'research', 'admin', 'goodwill', 'otherExpense', 'operating']);
-  assert.deepEqual(FIELDS.investment.map(field => field.key), ['equity', 'otherInvestment', 'beforeFinance']);
-  assert.deepEqual(FIELDS.financing.map(field => field.key), ['interest', 'benefit', 'beforeTax', 'tax']);
-  assert.deepEqual(FIELDS.controller.map(field => field.key), ['discontinued', 'final']);
-  assert.equal(FIELDS.operational.some(field => field.key === 'deductions'), false);
-  assert.equal(FIELDS.controller.some(field => ['gross', 'operating', 'beforeFinance', 'beforeTax'].includes(field.key)), false);
+const total = entries => entries.reduce((sum, entry) => sum + (entry.effect === 'subtract' ? -1 : 1) * Math.round(entry.value * 100), 0);
+const fillRole = (role, solution, fields) => {
+  for (const [key, value] of Object.entries(solution)) fields[role][key] = (value / 100).toFixed(2);
+};
+
+test('as abas refletem as quatro funções e a estrutura em cascata da IFRS 18', () => {
+  assert.deepEqual(Object.keys(FIELDS), ['operational', 'investment', 'financing', 'controller']);
+  assert.deepEqual(FIELDS.operational.map(item => item.key), [
+    'grossRevenue', 'deductions', 'netRevenue', 'otherOperatingRevenue', 'materialsConsumption', 'inventoryVariation',
+    'employeeExpenses', 'depreciation', 'amortization', 'researchDevelopment', 'marketing', 'impairment',
+    'otherOperatingExpenses', 'operatingProfit'
+  ]);
+  assert.deepEqual(FIELDS.investment.map(item => item.key), ['equity', 'otherInvestment', 'beforeFinancingTaxes']);
+  assert.deepEqual(FIELDS.financing.map(item => item.key), [
+    'interestBorrowingsLeases', 'interestEmployeeBenefits', 'fxFinancing', 'provisionExpense', 'beforeTax',
+    'incomeTaxContinuing', 'socialContributionContinuing', 'taxContinuing', 'afterTaxContinuing',
+    'discontinuedBeforeTax', 'incomeTaxDiscontinued', 'socialContributionDiscontinued', 'taxDiscontinued'
+  ]);
+  assert.deepEqual(FIELDS.controller.map(item => item.key), ['discontinuedRevenue', 'discontinuedExpenses', 'discontinued', 'final']);
+  assert.ok(FIELDS.operational.some(item => item.key === 'grossRevenue'));
+  assert.ok(FIELDS.operational.some(item => item.key === 'netRevenue'));
+  assert.ok(FIELDS.operational.every(item => item.key !== 'gross'));
 });
 
-test('as respostas são somadas das contas de origem, sem entregar os subtotais', () => {
-  const result = answers();
-  assert.equal(result.operational.revenue, 263478956);
-  assert.equal(result.operational.cost, 42289078);
-  assert.equal(result.operational.gross, 221189878);
-  assert.equal(result.operational.otherRevenue, 2634790);
-  assert.equal(result.operational.operating, 203810363);
-  assert.equal(result.investment.equity, 4120000);
-  assert.equal(result.investment.otherInvestment, 1875000);
-  assert.equal(result.investment.beforeFinance, 209805363);
-  assert.equal(result.financing.beforeTax, 139473363);
-  assert.equal(result.financing.tax, 33473607);
-  assert.equal(result.controller.discontinued, 1680000);
-  assert.equal(result.controller.final, 107679756);
-  assert.notEqual(CASE.sources.operational.revenue[0].value, result.operational.revenue / 100);
-  assert.ok(Object.values(CASE.sources).every(groups => Object.values(groups).flat().every(entry => entry.value > 0)));
+test('o resultado é calculado a partir das contas de origem, incluindo consumo e variação de estoque', () => {
+  const result = answers(CASE);
+  const source = CASE.sources;
+  assert.equal(result.operational.grossRevenue, total(source.operational.grossRevenue));
+  assert.equal(result.operational.deductions, total(source.operational.deductions));
+  assert.equal(result.operational.netRevenue, result.operational.grossRevenue - result.operational.deductions);
+  assert.equal(result.operational.materialsConsumption, total(source.operational.materialsConsumption));
+  assert.equal(result.operational.inventoryVariation, total(source.operational.inventoryVariation));
+  assert.equal(result.operational.operatingProfit,
+    result.operational.netRevenue + result.operational.otherOperatingRevenue - result.operational.materialsConsumption
+    + result.operational.inventoryVariation - result.operational.employeeExpenses - result.operational.depreciation
+    - result.operational.amortization - result.operational.researchDevelopment - result.operational.marketing
+    - result.operational.impairment - result.operational.otherOperatingExpenses);
+  assert.equal(result.investment.beforeFinancingTaxes, result.operational.operatingProfit + result.investment.equity + result.investment.otherInvestment);
+  assert.equal(result.financing.incomeTaxContinuing, Math.round(result.financing.beforeTax * CASE.taxRates.ir / 100));
+  assert.equal(result.financing.socialContributionContinuing, Math.round(result.financing.beforeTax * CASE.taxRates.csll / 100));
+  assert.equal(result.financing.taxContinuing, result.financing.incomeTaxContinuing + result.financing.socialContributionContinuing);
+  assert.equal(result.financing.afterTaxContinuing, result.financing.beforeTax - result.financing.taxContinuing);
+  assert.equal(result.financing.discontinuedBeforeTax,
+    result.controller.discontinuedRevenue - result.controller.discontinuedExpenses);
+  assert.equal(result.financing.incomeTaxDiscontinued, Math.round(result.financing.discontinuedBeforeTax * CASE.taxRates.ir / 100));
+  assert.equal(result.financing.socialContributionDiscontinued, Math.round(result.financing.discontinuedBeforeTax * CASE.taxRates.csll / 100));
+  assert.equal(result.financing.taxDiscontinued,
+    result.financing.incomeTaxDiscontinued + result.financing.socialContributionDiscontinued);
+  assert.equal(result.controller.final, result.financing.afterTaxContinuing + result.controller.discontinued);
+  assert.ok(Object.values(result).every(area => Object.values(area).every(value => Number.isInteger(value) && value !== 0)));
 });
 
-test('cada novo caso varia as contas, mantém as alíquotas ensinadas e preenche todas as linhas', () => {
-  const first = createPracticeCase(1);
-  const second = createPracticeCase(2);
+test('casos novos variam, usam apenas contas preenchidas e mantêm todos os subtotais diferentes de zero', () => {
+  const first = createPracticeCase(101);
+  const second = createPracticeCase(202);
   assert.notDeepEqual(first.sources, second.sources);
-  assert.deepEqual(first.taxRates, { ir: 15, csll: 9 });
-  assert.deepEqual(second.taxRates, { ir: 11, csll: 8 });
-  for (const sample of [first, second, ...Array.from({ length: 20 }, (_, index) => createPracticeCase(index + 10))]) {
-    assert.ok(Object.values(sample.sources).every(groups => Object.values(groups).flat().every(entry => entry.value > 0)));
-    assert.ok(Object.values(answers(sample)).every(area => Object.values(area).every(value => value > 0)));
-    const computed = answers(sample);
-    const beforeTax = computed.financing.beforeTax;
-    const expectedTaxes = Math.round(beforeTax * sample.taxRates.ir / 100) + Math.round(beforeTax * sample.taxRates.csll / 100);
-    assert.equal(computed.financing.tax, expectedTaxes);
+  assert.notDeepEqual(first.taxRates, second.taxRates);
+  for (let seed = 1; seed <= 300; seed++) {
+    const sample = createPracticeCase(seed);
+    const calculated = answers(sample);
+    const items = Object.values(sample.sources).flatMap(groups => Object.values(groups).flat());
+    assert.ok(items.length > 0);
+    assert.ok(items.every(item => Number.isFinite(item.value) && item.value > 0));
+    assert.ok(Object.values(calculated).every(area => Object.values(area).every(value => Number.isInteger(value) && value !== 0)));
+    assert.ok(calculated.operational.operatingProfit > 0);
+    assert.ok(calculated.financing.beforeTax > 0);
+    assert.ok(calculated.controller.final > 0);
   }
 });
 
-test('aceita formatos monetários brasileiros e não considera campo vazio como zero', () => {
+test('a correção confere cada área contra o gabarito do próprio caso', () => {
+  const data = createPracticeCase(808);
+  const fields = EMPTY();
+  assert.equal(grade('operational', fields.operational, data).correct, false);
+  for (const role of Object.keys(fields)) {
+    fillRole(role, answers(data)[role], fields);
+    assert.equal(grade(role, fields[role], data, fields).correct, true, `área ${role}`);
+  }
+  fields.operational.netRevenue = (answers(data).operational.grossRevenue / 100).toFixed(2);
+  assert.equal(grade('operational', fields.operational, data).correct, false);
+});
+
+test('o controller soma os números informados pelo gerente e não corrige a área financeira', () => {
+  const data = createPracticeCase(909);
+  const solution = answers(data);
+  const fields = EMPTY();
+  fillRole('controller', solution.controller, fields);
+  fillRole('financing', solution.financing, fields);
+  fields.financing.afterTaxContinuing = ((solution.financing.afterTaxContinuing + 12345) / 100).toFixed(2);
+  fields.controller.final = ((solution.controller.final + 12345) / 100).toFixed(2);
+  assert.equal(grade('controller', fields.controller, data, fields).correct, true);
+  assert.equal(grade('financing', fields.financing, data, fields).correct, false);
+});
+
+test('aceita dinheiro no formato brasileiro e não interpreta campo em branco como zero', () => {
   assert.equal(normalizeMoney('R$ 2.634.789,56'), 263478956);
-  assert.equal(normalizeMoney('0'), 0);
+  assert.equal(normalizeMoney('-1.234,56'), -123456);
   assert.equal(normalizeMoney('693900'), 69390000);
   assert.equal(normalizeMoney(''), null);
 });
 
-test('corrige cada área contra seus cálculos de origem e subtotal', () => {
-  const fields = EMPTY();
-  assert.equal(grade('operational', fields.operational).correct, false);
-  for (const role of Object.keys(fields)) {
-    for (const [key, value] of Object.entries(answers()[role])) fields[role][key] = (value / 100).toFixed(2);
-    assert.equal(grade(role, fields[role], CASE, fields).correct, true, `área ${role}`);
-  }
-  fields.operational.gross = (answers().operational.revenue / 100).toFixed(2);
-  assert.equal(grade('operational', fields.operational).correct, false);
-});
-
-test('controller confere a soma dos valores recebidos dos gerentes sem corrigir suas apurações', () => {
-  const expected = answers();
-  const submitted = EMPTY();
-  submitted.financing.beforeTax = '100000,00';
-  submitted.financing.tax = '10000,00';
-  submitted.controller.discontinued = (expected.controller.discontinued / 100).toFixed(2);
-  submitted.controller.final = ((10000000 - 1000000 + expected.controller.discontinued) / 100).toFixed(2);
-  const checked = grade('controller', submitted.controller, CASE, submitted);
-  assert.deepEqual(checked.fields, { discontinued: true, final: true });
-  assert.notEqual(normalizeMoney(submitted.controller.final), expected.controller.final);
-});
-
-test('converte salas antigas mantendo valores informados nas categorias compatíveis', () => {
-  const legacy = {
-    operational: [
-      { key: 'revenue', value: 2634789.56 },
-      { key: 'cost', value: 422890.78 }
-    ],
-    investment: [{ key: 'equity', value: 41200 }, { key: 'otherInvestment', value: 18750 }],
-    financing: [{ key: 'interest', value: 693900 }, { key: 'benefit', value: 9420 }],
+test('salas antigas sem a estrutura nova caem no caso didático atual', () => {
+  const old = normalizeCaseData({
+    operational: [{ key: 'revenue', value: 1000 }],
     metadata: { company: 'Sala antiga' }
-  };
-  const converted = normalizeCaseData(legacy);
-  assert.equal(converted.metadata.company, 'Sala antiga');
-  assert.equal(answers(converted).operational.revenue, 263478956);
-  assert.equal(answers(converted).operational.cost, 42289078);
-  assert.equal(answers(converted).financing.tax, 33473607);
-  assert.ok(converted.sources.operational.revenue.length > 1);
+  });
+  assert.equal(old.schemaVersion, CASE.schemaVersion);
+  assert.equal(old.metadata.company, CASE.metadata.company);
+  assert.ok(old.sources.operational.grossRevenue.length > 1);
 });

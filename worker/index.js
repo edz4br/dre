@@ -1,19 +1,22 @@
-import { CASE, EMPTY, FIELDS, createPracticeCase, grade, normalizeCaseData } from '../site/core.js';
+import { CASE, EMPTY, EMPTY_SCRATCH, FIELDS, createPracticeCase, grade, normalizeCaseData } from '../site/core.js';
 
 const json = (body, status = 200, origin = '') => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...(origin ? { 'Access-Control-Allow-Origin': origin, Vary: 'Origin' } : {}) } });
 const fieldsOk = (role, field) => FIELDS[role]?.some(item => item.key === field);
+const scratchRoles = ['operational', 'investment', 'financing'];
 const roomOk = value => /^[A-Z0-9]{8,12}$/.test(value);
 const now = () => new Date().toISOString();
 
 function parseRoom(row) {
   const stored = JSON.parse(row.state);
   const savedCase = stored.__caseData || CASE;
+  const scratch = stored.__scratch || EMPTY_SCRATCH();
   const caseData = normalizeCaseData(savedCase);
   delete stored.__caseData;
-  return { fields: stored, caseData, checked: JSON.parse(row.checked), revision: row.revision, updatedAt: row.updated_at };
+  delete stored.__scratch;
+  return { fields: stored, caseData, scratch, checked: JSON.parse(row.checked), revision: row.revision, updatedAt: row.updated_at };
 }
 
-const emptyRoomState = (caseData = CASE) => ({ ...EMPTY(), __caseData: normalizeCaseData(caseData) });
+const emptyRoomState = (caseData = CASE) => ({ ...EMPTY(), __caseData: normalizeCaseData(caseData), __scratch: EMPTY_SCRATCH() });
 
 function makeCase(payload, seed, source = 'IA') {
   const text = ['company', 'sector', 'context'].map(key => String(payload?.[key] || '').trim().slice(0, key === 'context' ? 220 : 70));
@@ -50,8 +53,16 @@ async function generateCase(env) {
   }
 }
 
-async function readRoom(db, id) {
-  await db.prepare('INSERT OR IGNORE INTO rooms (id, state, checked, revision, updated_at) VALUES (?, ?, ?, 0, ?)').bind(id, JSON.stringify(emptyRoomState()), '{}', now()).run();
+function makeInitialCase() {
+  const seed = crypto.getRandomValues(new Uint32Array(1))[0] || 1;
+  return createPracticeCase(seed, { source: 'automático', generatedAt: now() });
+}
+
+async function readRoom(db, id, initialCase = CASE) {
+  const existing = await db.prepare('SELECT state, checked, revision, updated_at FROM rooms WHERE id = ?').bind(id).first();
+  if (existing) return existing;
+  const caseData = typeof initialCase === 'function' ? await initialCase() : initialCase;
+  await db.prepare('INSERT OR IGNORE INTO rooms (id, state, checked, revision, updated_at) VALUES (?, ?, ?, 0, ?)').bind(id, JSON.stringify(emptyRoomState(caseData)), '{}', now()).run();
   return db.prepare('SELECT state, checked, revision, updated_at FROM rooms WHERE id = ?').bind(id).first();
 }
 
@@ -59,7 +70,7 @@ async function bodyOf(request) {
   const type = request.headers.get('content-type') || '';
   if (!type.includes('application/json')) throw new Error('Envie dados em JSON.');
   const text = await request.text();
-  if (text.length > 1000) throw new Error('Dados grandes demais.');
+  if (text.length > 6500) throw new Error('Dados grandes demais.');
   return JSON.parse(text);
 }
 
@@ -82,17 +93,25 @@ export default {
     if (origin && !cors) return json({ error: 'Origem não autorizada.' }, 403);
     if (!env.DB) return json({ error: 'Banco de dados não configurado.' }, 503, cors);
     const url = new URL(request.url);
-    const match = url.pathname.match(/^\/api\/rooms\/([A-Z0-9]{8,12})(?:\/(fields|check|reset))?$/);
+    const match = url.pathname.match(/^\/api\/rooms\/([A-Z0-9]{8,12})(?:\/(fields|scratch|check|reset))?$/);
     if (!match || !roomOk(match[1])) return json({ error: 'Rota ou sala inválida.' }, 404, cors);
     const [, id, action] = match;
     try {
-      if (request.method === 'GET' && !action) return json(parseRoom(await readRoom(env.DB, id)), 200, cors);
+      if (request.method === 'GET' && !action) return json(parseRoom(await readRoom(env.DB, id, makeInitialCase)), 200, cors);
       if (request.method === 'PATCH' && action === 'fields') {
         const { role, field, value } = await bodyOf(request);
         if (!fieldsOk(role, field) || typeof value !== 'string' || value.length > 32 || !/^[\d.,\sR$r-]*$/i.test(value)) return json({ error: 'Campo ou valor inválido.' }, 400, cors);
         await readRoom(env.DB, id);
         const path = `$.${role}.${field}`;
         await env.DB.prepare('UPDATE rooms SET state = json_set(state, ?, ?), checked = json_remove(checked, ?), revision = revision + 1, updated_at = ? WHERE id = ?').bind(path, value, `$.${role}`, now(), id).run();
+        return json(parseRoom(await readRoom(env.DB, id)), 200, cors);
+      }
+      if (request.method === 'PATCH' && action === 'scratch') {
+        const { role, value } = await bodyOf(request);
+        if (!scratchRoles.includes(role) || typeof value !== 'string' || value.length > 4000) return json({ error: 'Rascunho inválido.' }, 400, cors);
+        await readRoom(env.DB, id);
+        const path = `$."__scratch"."${role}"`;
+        await env.DB.prepare('UPDATE rooms SET state = json_set(state, ?, ?), revision = revision + 1, updated_at = ? WHERE id = ?').bind(path, value, now(), id).run();
         return json(parseRoom(await readRoom(env.DB, id)), 200, cors);
       }
       if (request.method === 'POST' && action === 'check') {
